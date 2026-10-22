@@ -1,29 +1,83 @@
 <div align="center">
 
-# LightMap
+<h1>LightMap</h1>
 
-### Mapping Volume and Frequency to a Colour Map for One Colour Output
+<p><strong>Mapping Volume and Frequency to a Colour Map for a Single Colour Output</strong></p>
 
-[Group Member](https://github.com/loilipopi/LightMap/blob/main/readmeSubmission.md#group-members) • [Specifications](https://github.com/loilipopi/LightMap/blob/main/readmeSubmission.md#specification) • [Problem Statement](#problem-statement) • [Applications](https://github.com/loilipopi/LightMap/blob/main/README.md#other-applications)
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=18&duration=3000&pause=1000&color=42B8D5&center=true&vCenter=true&width=550&lines=Real-time+audio+visualization;From+sound+to+colour;Visual+feedback+for+accessible+gaming" alt="LightMap: real-time audio visualization, from sound to colour, and visual feedback for accessible gaming" />
+
+<p>
+  <img alt="FFT audio processing" src="https://img.shields.io/badge/Audio_Processing-FFT-4464ad?style=flat-square" />
+  <img alt="Single RGB colour output" src="https://img.shields.io/badge/Output-Single_RGB_Colour-27a8a8?style=flat-square" />
+  <img alt="Accessibility focus" src="https://img.shields.io/badge/Focus-Accessibility-7659bd?style=flat-square" />
+</p>
+
+<p>
+  <a href="#overview">Overview</a> ·
+  <a href="#problem-statement">Problem Statement</a> ·
+  <a href="#specification">Specification</a> ·
+  <a href="#other-applications">Other Applications</a> ·
+  <a href="#group-members">Group Members</a>
+</p>
 
 </div>
-Capture system audio and compute its frequency spectrum (FFT).
 
-Map frequency and normalized amplitude to RGB values on a 2D colour map.
+---
+## Overview
 
-Combine the sampled colours into one RGB output, updated continuously.
+LightMap is a real-time audio visualization system that converts PC audio into a single RGB colour using a two-dimensional colour map.
 
-Send the output to a screen, LEDs, or other applications.
+1. **Capture** system audio and compute its frequency spectrum using a Fast Fourier Transform (FFT).
+2. **Map** frequency and normalized amplitude to RGB values on a 2D colour map.
+3. **Combine** the sampled colours into one RGB output, updated continuously.
+4. **Display** the output on a screen, through LEDs, or in other applications.
 
 ## Problem Statement
-Many video games rely on important audio ques to inform the player of certain actions or opportunities within games which can make them inaccessible or significantly harder to play for individuals who have poor hearing or are deaf. 
 
-For example, many tactical shooter's bomb defusal gamemodes make distinct and important audio ques to inform the player of when important objectives like the bomb being planted/defused, or opportunities such as footsteps or audio ques of certain character abilities to take advantage of. 
+Many video games rely on important audio cues to inform players about actions or opportunities. This can make those games inaccessible or significantly more difficult for players who are deaf or hard of hearing.
 
-This task becomes even harder with games that also have music mixed in with these audio ques. Some games have tried to add visual ques to the game along side these audio ques to try and make the game more accessible however, most of these (especially for competitive games) are very limited and provide very little value in comparison. 
+For example, tactical shooters with bomb-defusal game modes often use distinct audio cues to indicate when an objective is planted or defused. Footsteps and certain character abilities also produce important sounds that players can use to make decisions.
 
+This becomes even more challenging when music is mixed with these audio cues. Some games include visual cues alongside audio to improve accessibility; however, these features, particularly in competitive games, are often limited and may not communicate as much information as the audio itself.
 
-### Other Applications:
-Visualize game audio to provide additional feedback for deaf and hard-of-hearing players. The initial RGB output represents the overall audio spectrum; recognizing specific sounds would require further processing.
+## Specification
+
+### Solution
+
+LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, the frequency and amplitude values are mapped onto a **2D colour map**, with each detected peak corresponding to a colour. The sampled colours are then combined into **one RGB colour** that can be displayed through a screen overlay or an external light.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/58797190-01c4-4eaa-9415-030f20fd47b4" width="860" alt="LightMap frequency-and-volume colour mapping diagram" />
+</p>
+
+Users could also create custom colour maps for different games and scenarios. Ideally, creating these maps would be straightforward, but simplifying that process is **outside the scope of this project**.
+
+### Example
+
+In video games like *VALORANT*, an objective emits a periodic sound that becomes faster as its timer approaches the end. Players who cannot hear this sound may have difficulty judging how much time remains. The intended use of LightMap is to convert this audio information into a colour-based visual output, giving players another way to receive feedback.
+
+## Other Applications
+
+LightMap can visualize game audio to provide additional feedback for players who are deaf or hard of hearing. **The initial RGB output represents the overall audio spectrum; recognizing specific sounds would require further processing.**
+
+Other potential applications include:
+
+- Music-reactive lighting
+- Desktop audio visualizations
+- RGB device integration
 
 Other potential applications include music-reactive lighting, desktop visualizations, and RGB device integration.
+
+## Group Members
+
+[Joe Meritt](https://github.com/loilipopi) Project Manager\
+Robert Hoang Designer\
+[Lucas Lu](https://github.com/l-lu2007) Developer\
+[Kevin Wu](https://github.com/isnxnet) Developer\
+[Taj Sangra](https://github.com/tajsangra) Developer
+
+---
+
+<div align="center">
+
+<a href="https://github.com/loilipopi/LightMap/tree/main"><strong>LightMap main branch</strong></a>
