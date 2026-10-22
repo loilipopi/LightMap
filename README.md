@@ -15,7 +15,9 @@
 </p>
 
 </div>
+
 ---
+
 ## Overview
 
 LightMap is a real-time audio visualization system that converts PC audio into a single RGB colour using a two-dimensional colour map.
