@@ -64,7 +64,7 @@ Other potential applications include:
 ## Group Members
 
 [Joe Meritt](https://github.com/loilipopi) - Project Manager\
-Robert Hoang - Designer\
+[Robert Hoang](https://github.com/RobertHob1234) - Designer\
 [Lucas Lu](https://github.com/l-lu2007) - Developer\
 [Kevin Wu](https://github.com/isnxnet) - Developer\
 [Taj Sangra](https://github.com/tajsangra) - Developer
