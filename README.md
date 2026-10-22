@@ -7,21 +7,14 @@
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=18&duration=3000&pause=1000&color=42B8D5&center=true&vCenter=true&width=550&lines=Real-time+audio+visualization;From+sound+to+colour;Visual+feedback+for+accessible+gaming" alt="LightMap: real-time audio visualization, from sound to colour, and visual feedback for accessible gaming" />
 
 <p>
-  <img alt="FFT audio processing" src="https://img.shields.io/badge/Audio_Processing-FFT-4464ad?style=flat-square" />
-  <img alt="Single RGB colour output" src="https://img.shields.io/badge/Output-Single_RGB_Colour-27a8a8?style=flat-square" />
-  <img alt="Accessibility focus" src="https://img.shields.io/badge/Focus-Accessibility-7659bd?style=flat-square" />
-</p>
-
-<p>
-  <a href="#overview">Overview</a> ·
-  <a href="#problem-statement">Problem Statement</a> ·
-  <a href="#specification">Specification</a> ·
-  <a href="#other-applications">Other Applications</a> ·
-  <a href="#group-members">Group Members</a>
+  <a href="#overview"><img alt="Overview" src="https://img.shields.io/badge/Overview-4464AD?style=for-the-badge" /></a>
+  <a href="#problem-statement"><img alt="Problem Statement" src="https://img.shields.io/badge/Problem_Statement-27A8A8?style=for-the-badge" /></a>
+  <a href="#specification"><img alt="Specification" src="https://img.shields.io/badge/Specification-7659BD?style=for-the-badge" /></a>
+  <a href="#other-applications"><img alt="Other Applications" src="https://img.shields.io/badge/Other_Applications-397A66?style=for-the-badge" /></a>
+  <a href="#group-members"><img alt="Group Members" src="https://img.shields.io/badge/Group_Members-A15D87?style=for-the-badge" /></a>
 </p>
 
 </div>
-
 ---
 ## Overview
 
@@ -66,15 +59,13 @@ Other potential applications include:
 - Desktop audio visualizations
 - RGB device integration
 
-Other potential applications include music-reactive lighting, desktop visualizations, and RGB device integration.
-
 ## Group Members
 
-[Joe Meritt](https://github.com/loilipopi) Project Manager\
-Robert Hoang Designer\
-[Lucas Lu](https://github.com/l-lu2007) Developer\
-[Kevin Wu](https://github.com/isnxnet) Developer\
-[Taj Sangra](https://github.com/tajsangra) Developer
+[Joe Meritt](https://github.com/loilipopi) - Project Manager\
+Robert Hoang - Designer\
+[Lucas Lu](https://github.com/l-lu2007) - Developer\
+[Kevin Wu](https://github.com/isnxnet) - Developer\
+[Taj Sangra](https://github.com/tajsangra) - Developer
 
 ---
 
