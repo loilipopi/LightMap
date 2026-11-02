@@ -79,10 +79,13 @@ The architecture follows Model–View–Controller, with separate services for a
 
 **Responsibility:** Convert frequency–magnitude pairs into colours using the predefined colour map and combine them into one output colour.
 
+
 **Location:** Client only.
 
 **Communication:**
 - Receives frequency–magnitude pairs and colour-mapping settings from AppController.
+- Process image (one time) into a linear map for mapping frequency-magnitude pairs.
+- Process the average of the colours of the frequency-magnitude pairs.
 - Returns one RGB colour per analysis result to AppController.
 
 ### Code Stub Locations
