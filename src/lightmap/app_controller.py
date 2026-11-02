@@ -1,6 +1,6 @@
 from .app_model import AppModel
 from .audio_capture import AudioCapture
-from .frequency_analyser import FrequencyAnalyser
+from .audio_analyser import FrequencyAnalyser
 from .colour_mapper import ColourMapper
 from .control_view import ControlView
 from .overlay_view import OverlayView
