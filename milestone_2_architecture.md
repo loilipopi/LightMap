@@ -30,7 +30,8 @@ The architecture follows Model–View–Controller, with separate services for a
 - Supplies the resulting frequency–magnitude pairs to ColourMapper.
 - Updates AppModel with capture status, settings, and the latest output colour.
 - Supplies capture status and error messages to ControlView.
-- Supplies output colours and visibility commands to OverlayView.
+- Supplies output colours and visibility commands to OverlayView.\
+- Supplies image to ColourMapper
 
 ### ControlView: View
 
