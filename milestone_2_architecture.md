@@ -85,7 +85,7 @@ The architecture follows Model–View–Controller, with separate services for a
 - Receives frequency–magnitude pairs and colour-mapping settings from AppController.
 - Returns one RGB colour per analysis result to AppController.
 
-## Code Stub Locations
+### Code Stub Locations
 
 All Python code stubs are located in `src/lightmap/`.
 
