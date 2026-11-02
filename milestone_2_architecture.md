@@ -63,7 +63,7 @@ The architecture follows Model–View–Controller, with separate services for a
 - Supplies captured samples in chronological order and their sample rate to AppController.
 - Reports capture failures to AppController.
 
-### FrequencyAnalyser: Controller
+### FrequencyAnalyser: Model
 
 **Responsibility:** Buffer audio samples into analysis windows and compute their frequency spectra using FFT.
 
@@ -75,7 +75,7 @@ The architecture follows Model–View–Controller, with separate services for a
 - Returns frequency–magnitude pairs for each completed analysis window to AppController.
 - Receives reset requests from AppController to discard buffered samples between capture sessions.
 
-### ColourMapper: Controller
+### ColourMapper: Model
 
 **Responsibility:** Convert frequency–magnitude pairs into colours using the predefined colour map and combine them into one output colour.
 
@@ -84,3 +84,20 @@ The architecture follows Model–View–Controller, with separate services for a
 **Communication:**
 - Receives frequency–magnitude pairs and colour-mapping settings from AppController.
 - Returns one RGB colour per analysis result to AppController.
+
+## Code Stub Locations
+
+All Python code stubs are located in `src/lightmap/`.
+
+| Component | File |
+|---|---|
+| AppModel | `src/lightmap/app_model.py` |
+| AppController | `src/lightmap/app_controller.py` |
+| AudioCapture | `src/lightmap/audio_capture.py` |
+| FrequencyAnalyser | `src/lightmap/audio_analyser.py` |
+| ColourMapper | `src/lightmap/colour_mapper.py` |
+| ControlView | `src/lightmap/control_view.py` |
+| OverlayView | `src/lightmap/overlay_view.py` |
+
+The application runs entirely on the client computer.
+No remote server is required.
