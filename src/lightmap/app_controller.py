@@ -18,9 +18,33 @@ class AppController:
         Preconditions:
             Components are configured consistently.
             Capture is stopped.
+            colour_map_path refers to a readable image file containing
+            the predefined colour map.
+            colour_map_settings satisfies the colour-mapping design
+            specification.
         Postconditions:
             Stores references to the supplied components.
+            Loads the colour map image once and constructs the
+            ColourMapper from it and colour_map_settings.
             No views are attached and capture remains stopped.
+        Raises:
+            FileNotFoundError if colour_map_path does not exist.
+            ValueError if the file is not a usable colour map image.
+        """
+        raise NotImplementedError
+
+    def _load_colour_map(self, colour_map_path: str) -> ColourMapImage:
+        """
+        Preconditions:
+            colour_map_path refers to a readable image file.
+        Postconditions:
+            Returns the image as a nonempty rectangular grid of
+            (red, green, blue) pixels, each channel an integer
+            from 0 to 255.
+            The file is unchanged.
+        Raises:
+            FileNotFoundError if colour_map_path does not exist.
+            ValueError if the file cannot be decoded as an image.
         """
         raise NotImplementedError
 
