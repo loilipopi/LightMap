@@ -1,9 +1,12 @@
 
-How will you coordinate your work?
+#### How will you coordinate your work?
 
 Who will coordinate the work?
-
+joe mama
 What will their project management practices be?
+strong communication
+Will you have meetings? How frequently? Who plans their agendas?
+maybe like once a week and then as needed
 
 We can use tools like GitHub Issues to organize and track development tasks. Each task will include a description, assigned developer, expected completion date, and acceptance criteria.
 
@@ -12,8 +15,6 @@ Todo: Tasks that have not been started.
 In Progress: Tasks currently being implemented.
 In Review: Completed tasks awaiting testing or code review.
 Done: Tasks that have been tested, reviewed, and merged.
-
-Will you have meetings? How frequently? Who plans their agendas?
 
 
 2.
@@ -50,10 +51,14 @@ What is your timeline?
 
 •
 Include a list of milestones you'll reach and deadlines for each.
+
+probably individual modules done or maybe do them in parallel idk 
 functional by 30th 
 
 5.
 How will you verify that you've met your requirements?
+
+test cases
 
 •
 For each requirement in your requirements document, detail how you will verify it, and if you won't verify it, justify why you won't. This is called an acceptance testing plan.
