@@ -1,8 +1,9 @@
-1.
+
 How will you coordinate your work?
 
-•
 Who will coordinate the work?
+
+What will their project management practices be?
 
 We can use tools like GitHub Issues to organize and track development tasks. Each task will include a description, assigned developer, expected completion date, and acceptance criteria.
 
@@ -12,12 +13,8 @@ In Progress: Tasks currently being implemented.
 In Review: Completed tasks awaiting testing or code review.
 Done: Tasks that have been tested, reviewed, and merged.
 
-
-•
-What will their project management practices be?
-
-•
 Will you have meetings? How frequently? Who plans their agendas?
+
 
 2.
 What tools will you use to communicate?
@@ -28,9 +25,6 @@ What tools will you use to communicate?
 | GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. |
 | GitHub Pull Requests | Code reviews and discussions about implementation | Pull requests allow team members to examine specific code changes and provide feedback before merging.| 
 | GitHub Repository | Sharing code, documentation, and development progress| Git provides version history and makes it possible to work on separate branches without overwriting other developers' changes. |
-
-•
-For each, articulate the alternatives and why that is the best choice.
 
 3.
 Who will own component in your architecture?
@@ -45,7 +39,6 @@ Who will own component in your architecture?
 | FrequencyAnalyser | | Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
 | ColourMapper | | Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
-
 •
 Owning them means being responsible for writing them and making sure they are functional and correct.
 
@@ -57,6 +50,7 @@ What is your timeline?
 
 •
 Include a list of milestones you'll reach and deadlines for each.
+functional by 30th 
 
 5.
 How will you verify that you've met your requirements?
