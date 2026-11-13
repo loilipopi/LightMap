@@ -1,16 +1,16 @@
 
 #### How will you coordinate your work?
 
-**Who will coordinate the work?
-**
+**Who will coordinate the work?**
+
 The Project Manager (PM), Joe, will coordinate the team's development activities, track progress, and ensure project milestones are met on schedule.
 
 Each developer will implement and test their assigned components. The PM will monitor progress and help resolve problems that affect multiple components.
 
 Justification: Since LightMap consists of several interconnected components, having one person coordinate development will help prevent scheduling conflicts, duplicated work, and integration problems.
 
-**What will their project management practices be?
-**
+**What will their project management practices be?**
+
 We can use tools like GitHub Issues to organize and track development tasks. Each task will include a description, assigned developer, expected completion date, and acceptance criteria.
 
 Tasks will be organized like:
@@ -19,8 +19,8 @@ Tasks will be organized like:
 - In Review: Completed tasks awaiting testing or code review.
 - Done: Tasks that have been tested, reviewed, and merged.
 
-**Will you have meetings? How frequently? Who plans their agendas?
-**
+**Will you have meetings? How frequently? Who plans their agendas?**
+
 We will hold one weekly meeting, lasting approximately 30 minutes, to discuss development progress.
 
 The PM will prepare the meeting agenda, which will cover:
@@ -34,8 +34,8 @@ We will also communicate asynchronously throughout the week whenever problems or
 If an urgent issue affects the project timeline, the PM may organize an additional short meeting.
 
 2.
-What tools will you use to communicate?
-
+**What tools will you use to communicate?**
+  
 |tool | purpose | |
 | --- | --- | --- |
 | Discord & Instagram | Daily communication, questions, and voice meetings | Compared with email, Discord allows faster discussions and easier communication among multiple group members. |
