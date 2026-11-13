@@ -4,6 +4,15 @@ How will you coordinate your work?
 •
 Who will coordinate the work?
 
+We can use tools like GitHub Issues to organize and track development tasks. Each task will include a description, assigned developer, expected completion date, and acceptance criteria.
+
+Tasks will be organized like:
+Todo: Tasks that have not been started.
+In Progress: Tasks currently being implemented.
+In Review: Completed tasks awaiting testing or code review.
+Done: Tasks that have been tested, reviewed, and merged.
+
+
 •
 What will their project management practices be?
 
@@ -13,11 +22,29 @@ Will you have meetings? How frequently? Who plans their agendas?
 2.
 What tools will you use to communicate?
 
+|tool | purpose | |
+| --- | --- | --- |
+| Discord & Instagram | Daily communication, questions, and voice meetings | Compared with email, Discord allows faster discussions and easier communication among multiple group members. |
+| GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. |
+| GitHub Pull Requests | Code reviews and discussions about implementation | Pull requests allow team members to examine specific code changes and provide feedback before merging.| 
+| GitHub Repository | Sharing code, documentation, and development progress| Git provides version history and makes it possible to work on separate branches without overwriting other developers' changes. |
+
 •
 For each, articulate the alternatives and why that is the best choice.
 
 3.
 Who will own component in your architecture?
+
+| Component |Responsible developer | Responsibilities |
+| --- | ---| ---|
+| AppModel | | Maintain application state, capture status, processing settings, and the latest output colour. |
+| AppController | | Handle user actions and coordinate communication between the application components. |
+| ControlView| | Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
+| OverlayView | | Display the output colour and manage overlay visibility. |
+| AudioCapture | | Capture audio from the computer's default output device and manage audio capture sessions.|
+| FrequencyAnalyser | | Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| ColourMapper | | Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
+
 
 •
 Owning them means being responsible for writing them and making sure they are functional and correct.
