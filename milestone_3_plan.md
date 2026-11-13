@@ -38,8 +38,8 @@ If an urgent issue affects the project timeline, the PM may organize an addition
   
 |tool | purpose | |
 | --- | --- | --- |
-| Discord & Instagram | Daily communication, questions, and voice meetings | Compared with email, Discord allows faster discussions and easier communication among multiple group members. |
-| GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. |
+| Discord & Instagram | Daily communication, questions, and voice meetings | Compared with email, Discord and Instagram allow faster discussions and easier communication among multiple group members. |
+| GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. While Instagram gives group members efficient communication and progress tracking. |
 | GitHub Pull Requests | Code reviews and discussions about implementation | Pull requests allow team members to examine specific code changes and provide feedback before merging.| 
 | GitHub Repository | Sharing code, documentation, and development progress| Git provides version history and makes it possible to work on separate branches without overwriting other developers' changes. |
 
