@@ -48,13 +48,13 @@ Who will own component in your architecture?
 
 | Component |Responsible developer | Responsibilities |
 | --- | ---| ---|
-| AppModel | | Maintain application state, capture status, processing settings, and the latest output colour. |
-| AppController | | Handle user actions and coordinate communication between the application components. |
-| ControlView| | Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
-| OverlayView | | Display the output colour and manage overlay visibility. |
-| AudioCapture | | Capture audio from the computer's default output device and manage audio capture sessions.|
-| FrequencyAnalyser | | Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
-| ColourMapper | | Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
+| AppModel | Kevin | Maintain application state, capture status, processing settings, and the latest output colour. |
+| AppController | Kevin | Handle user actions and coordinate communication between the application components. |
+| ControlView| Robert | Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
+| OverlayView | Lucas | Display the output colour and manage overlay visibility. |
+| AudioCapture | Robert | Capture audio from the computer's default output device and manage audio capture sessions.|
+| FrequencyAnalyser | Joe | Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| ColorMapper | Taj | Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
 •
 Owning them means being responsible for writing them and making sure they are functional and correct.
@@ -65,33 +65,32 @@ For each component, list the one person who is in charge of getting it done.
 4.
 What is your timeline?
 
-•
-Include a list of milestones you'll reach and deadlines for each.
+Finish modules:
+AppModel - 18th
+ControlView - 18th
+OverlayView - 19th
+AppController - 20th
+AudioCapture - 20th
+FreqAnalyser - 20th
+ColorMapper - 22nd
 
-probably individual modules done or maybe do them in parallel idk 
-functional by 30th 
+Functional by 27th 
 
 5.
 How will you verify that you've met your requirements?
 
 test cases
 
-•
 For each requirement in your requirements document, detail how you will verify it, and if you won't verify it, justify why you won't. This is called an acceptance testing plan.
 
-•
 If you propose to write a tests, what exact tests will you conduct and what will count as each test passing?
 
-•
 If you propose to conduct reviews or inspections, how will you analyze the code?
 
-•
 If you write a proof, what property will you prove?
 
-•
 If you conduct a review or inspection, what aspects of the code will you inspect to verify the requirement is met?
 
-•
 For all of the requirements, how will your verifications be integrated into your process? Will you run automated tests after every build? Before every commit? When will you conduct inspections and who will be involved?
 
 For each answer you provide, provide a written justification that explains the rationale behind your decisions, given what you know about what you need to build. I want to incentivize you to think deeply about each of these choices, to make sure your process decision actually makes sense.
