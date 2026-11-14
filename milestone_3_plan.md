@@ -79,7 +79,7 @@ Finish modules:
 - Functional by 27th 
 
 ### How will you verify that you've met your requirements?
-See [verification checklist](verification_plan.md)
+See [verification plan](verification_plan.md)
 
 ### How resilient is our plan?
 
