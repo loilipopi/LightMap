@@ -78,11 +78,11 @@ We will use three main methods:
 
 AppController owns most of the behaviour behind CA-03, CA-05 to CA-08 and D-03 to D-05, so it gets its own automated test suite, listed scenario by scenario in the [AppController checklist](verification_checklist.md#appcontroller-kevin-backup-joe-due-20th). It runs against a real AppModel with a mock AudioCapture, ControlView and OverlayView.
 
-**Justification:** The controller's job is routing and coordination. Mocks let us check exactly which calls it makes and in what order, and we can inject failures (such as a throwing capture) that are hard to produce on real hardware.
+**Justification:** The controller's job is routing and coordination. Test cases let us check exactly which calls it makes and in what order, and we can inject failures that are hard to produce on real hardware.
 
 ##### AppModel design inspection
 
-AppModel is inspected rather than only tested because every other component depends on it, and design flaws in it get more expensive to fix with each module built on top. We inspect it against the five SOLID principles (SRP, OCP, LSP, ISP, DIP) and against a rule that status can only be Stopped, Active or Error (CA-06). We also apply the interface-related checks to the interfaces AppController and the views use to reach the model, since those principles show up at component boundaries. The item-by-item list, with what each principle means for AppModel and the requirement it protects, is [section 2 of the checklist](verification_checklist.md#2-appmodel-design-inspection-within-one-day-of-appmodel-being-finished).
+AppModel is inspected rather than only tested because every other component depends on it, and design flaws in it get more expensive to fix with each module we build. We inspect it against the five SOLID principles (SRP, OCP, LSP, ISP, DIP) and against a rule that status can only be Stopped, Active or Error (CA-06). We also apply the interface-related checks to the interfaces AppController and the views use to reach the model, since those principles show up at component boundaries. The item-by-item list, with what each principle means for AppModel and the requirement it protects, is [section 2 of the checklist](verification_checklist.md#2-appmodel-design-inspection-within-one-day-of-appmodel-being-finished).
 
 **How we analyze the code:** Each of the five team members works through the checklist alone, ticking each item or writing the file and line that breaks it. We then hold a 20-minute call to compare findings. The PM records the outcome in the GitHub Issue. **It passes when** every item is ticked by every member, or each problem has been fixed and the affected item re-checked by the person who raised it.
 
