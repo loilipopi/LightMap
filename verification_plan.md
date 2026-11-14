@@ -4,20 +4,13 @@
 
 This is our acceptance testing plan. The exact tests, their steps and what counts as each one passing are in our [verification checklist](verification_checklist.md), organised by component. This page explains the approach, why we chose it, and which requirement is checked by which method and which part of the checklist.
 
-Requirement IDs are prefixed with their section because each section numbers from 01: **CA** = Capturing Audio, **FFT** = FFT to Analyze Audio, **CM** = Color Mapping, **D** = Display.
+We will use three main methods:
 
-We use three methods:
-
-- **Automated test (A):** runs in code with no human and no hardware, using fake or mock components. These run on every push.
-- **Manual test (M):** needs the real audio device or the real screen. The owner runs it and attaches evidence (screenshot or short note) to the GitHub Issue.
+- **Automated test (A):** runs test cases in code using fake or mock components
+- **Manual test (M):** needs the real audio capture or a real screen. Should attach evidence (screenshot or short note) to the GitHub Issue
 - **Inspection (I):** the team reads the design against a checklist. Used for properties that tests cannot observe.
 
-We are not writing proofs. The FFT, Hann window and magnitude formulas are standard, so the risk is in our implementation, not the mathematics. Comparing against a reference implementation and hand-computed values checks our code more directly than a proof would.
-
-**Every requirement has at least one test or inspection.** Two cannot be checked exhaustively. CA-04 ("shall not interrupt playback") is tested over a 5-minute track on two tracks, and D-03 ("until disabled") is tested over 60 seconds. We state those limits rather than claim more.
-
-##### Where the tests are
-
+**Every requirement has at least one test or inspection.**
 | Component | Tests and pass criteria | Requirements verified |
 | --- | --- | --- |
 | AppModel | [Checklist: AppModel](verification_checklist.md#appmodel-kevin-backup-lucas-due-18th) | CA-06, D-01, D-03, D-04 (state handling) |
