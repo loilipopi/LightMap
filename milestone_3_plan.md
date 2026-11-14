@@ -67,10 +67,10 @@ What is your timeline?
 
 Finish modules:
 AppModel - 18th
+AudioCapture - 18th
 ControlView - 18th
 OverlayView - 19th
 AppController - 20th
-AudioCapture - 20th
 FreqAnalyser - 20th
 ColorMapper - 22nd
 
@@ -79,7 +79,26 @@ Functional by 27th
 5.
 How will you verify that you've met your requirements?
 
-test cases
+AppModel -> Review and Inspection
+We will all individually review and inspect the code against the SOLID principles 
+
+AudioCapture -> Test Case
+Compare audio capture output to existing audio capture software using an external audio comparison software 
+
+ControlView -> Test Case
+We have to test for when audio start/stops capture, overlay is enabled/disabled, and all statuses with intentional errors thrown
+so we will write test cases to give us full path coverage of these three functions
+
+OverlayView ->  Test Case
+We provide the overlayView with a colour cycling function and we confirm visually if it matches the function we gave
+
+FrequencyAnalyser -> Test cases
+Provide an audio with a known frequency and look for accuracy measured by %error to the graph
+- start small 1-2 frequencies, harmonies, then game audio
+
+ColorMapper -> test cases
+Provided a frequency volume map and colour map, the colours produced match the expected output (calculated/inferred manually)
+- start small black and white, gradients, custom map
 
 For each requirement in your requirements document, detail how you will verify it, and if you won't verify it, justify why you won't. This is called an acceptance testing plan.
 
