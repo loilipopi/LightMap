@@ -2,9 +2,7 @@
 
 Legend: **(A)** automated test, **(M)** manual test with evidence posted in the GitHub Issue, **(I)** inspection. IDs are prefixed by section: **CA** Capturing Audio, **FFT** FFT to Analyze Audio, **CM** Color Mapping, **D** Display.
 
-Owners, backups and due dates follow the timeline. Backup owners are proposals, so confirm them with the team.
-
-## 0. Decide first (tests depend on these)
+## 0. Pre Components
 
 - [ ] Window size N (proposed 1024) and chunk time t (proposed t = N / fs, so one chunk = one analysis window, no overlap)
 - [ ] Hann form (proposed periodic: `0.5 * (1 - cos(2πn / N))`)
