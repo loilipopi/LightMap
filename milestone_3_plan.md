@@ -61,13 +61,20 @@ Justification: Weekly meetings provide regular opportunities to identify problem
 ### What is your timeline?
 
 Finish modules:
-AppModel - 18th
-AudioCapture - 18th
-ControlView - 18th
-OverlayView - 19th
-AppController - 20th
-FreqAnalyser - 20th
-ColorMapper - 22nd
+
+- AppModel - 18th
+
+- AudioCapture - 18th
+
+- ControlView - 18th
+
+- OverlayView - 19th
+
+- AppController - 20th
+
+- FreqAnalyser - 20th
+
+- ColorMapper - 22nd
 
 Functional by 27th 
 
