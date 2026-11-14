@@ -55,7 +55,7 @@ Justification: Weekly meetings provide regular opportunities to identify problem
 | ControlView| Robert | Robert |Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
 | OverlayView | Lucas | Taj |Display the output colour and manage overlay visibility. |
 | AudioCapture | Robert | Lucas|Capture audio from the computer's default output device and manage audio capture sessions.|
-| FrequencyAnalyser | Joe | Robert |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| FrequencyAnalyser | Joe | Lucas |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
 | ColorMapper | Taj | Kevin |Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
 ### What is your timeline?
