@@ -55,8 +55,8 @@ Justification: Weekly meetings provide regular opportunities to identify problem
 | ControlView| Robert | |Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
 | OverlayView | Lucas | |Display the output colour and manage overlay visibility. |
 | AudioCapture | Robert | |Capture audio from the computer's default output device and manage audio capture sessions.|
-| FrequencyAnalyser | Joe | |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
-| ColorMapper | Taj | |Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
+| FrequencyAnalyser | Joe | Kevin |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| ColorMapper | Taj | Kevin |Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
 ### What is your timeline?
 
@@ -80,39 +80,65 @@ Finish modules:
 
 ### How will you verify that you've met your requirements?
 
+Our detailed testing strategy is documented in verification_plan.md, which explains the verification methods for each requirement and the reasoning behind them. The exact test procedures, expected results, and passing criteria are provided in verification_checklist.md.
+
 AppModel -> Review and Inspection
+
 We will all individually review and inspect the code against the SOLID principles 
 
 AudioCapture -> Test Case
-Compare audio capture output to existing audio capture software using an external audio comparison software 
+
+Compare audio capture output to existing audio capture software using an external audio comparison software. We will also test audio chunk consistency, start/stop functionality, and resource cleanup.
 
 ControlView -> Test Case
-We have to test for when audio start/stops capture, overlay is enabled/disabled, and all statuses with intentional errors thrown
-so we will write test cases to give us full path coverage of these three functions
+
+We have to test for when audio start/stops capture, overlay is enabled/disabled, and all statuses with intentional errors thrown. We will write test cases to give us full path coverage of these three functions
 
 OverlayView ->  Test Case
+
 We provide the overlayView with a colour cycling function and we confirm visually if it matches the function we gave
 
-FrequencyAnalyser -> Test cases
-Provide an audio with a known frequency and look for accuracy measured by %error to the graph
-- start small 1-2 frequencies, harmonies, then game audio
+FrequencyAnalyser → Test Cases
 
-ColorMapper -> test cases
-Provided a frequency volume map and colour map, the colours produced match the expected output (calculated/inferred manually)
-- start small black and white, gradients, custom map
+Provide audio with a known frequency and evaluate accuracy using percentage error against the expected frequency spectrum.
+
+- Start with 1–2 frequencies.
+
+- Test harmonics and combinations of frequencies.
+
+- Test with actual game audio.
+
+ColorMapper → Test Cases
+
+Provide a frequency-volume map and colour map, then compare the colours produced with the expected output calculated manually.
+
+- Start with grayscale (light-dark only) maps.
+
+- Test colour gradients.
+
+- Finally, test custom colour maps.
+
+AppController → Test Cases
+
+Use mock components to test how AppController handles start/stop requests, capture errors, overlay visibility, and communication between components.
+
+All detailed test cases, including specific inputs, expected outputs, and passing conditions, are listed in verification_checklist.md. The mapping between these tests and our Milestone 2 requirements is provided in verification_plan.md.
   
 ### How will verification fit into our process?
 
+Our verification process follows the workflow described in verification_plan.md, while verification_checklist.md provides the detailed testing and review procedures used to determine whether each requirement has been satisfied.
+
 | When | What happens | Who |
 | --- | --- | --- |
-| Before opening a pull request | The owner runs their component's tests locally and posts the results in the GitHub Issue. Manual checks (AudioCapture comparison, OverlayView colour cycle) are done now, with a screenshot or short note as evidence. | Component owner |
-| On every push and pull request | Automated tests (ControlView, FrequencyAnalyser, ColorMapper) run through GitHub Actions. A pull request cannot move to Done unless they pass. | Automatic |
+| Before opening a pull request | The owner runs their component's tests locally and records the results using the verification checklist. Manual checks (AudioCapture comparison, OverlayView colour cycle) are done now, with a screenshot or short note as evidence. | Component owner |
+| On every push and pull request | Automated tests (ControlView, FrequencyAnalyser, ColorMapper, AppController) run through GitHub Actions. A pull request cannot move to Done unless they pass. | Automatic |
 | Before merging | At least one other team member (the backup owner in the table below) reviews the pull request. | Backup owner |
-| After every merge to main | The full test suite is re-run so a merge that breaks another component is caught immediately. | Automatic |
-| Right after AppModel is finished (18th) | All members individually inspect AppModel against a SOLID checklist, then compare findings in a short call. The PM records the results in the Issue. | Whole team, PM schedules |
-| Integration window (23rd–26th) | End-to-end test with real game audio, from AudioCapture through to the OverlayView colour. | Whole team |
+| After every merge to main | The full automated test suite is re-run so a merge that breaks another component is caught immediately. | Automatic |
+| Right after AppModel is finished (18th) | All members individually inspect AppModel against the SOLID checklist, then compare findings in a short call. The PM records the results in the Issue. | Whole team, PM schedules |
+| Integration window (23rd–26th) | Conduct the end-to-end tests specified in the verification checklist using real audio, from AudioCapture through to the OverlayView colour. | Whole team |
+| Before final submission | Review the requirement sign-off section in the verification checklist and confirm that all 21 requirements have passed their specified verification procedures. | PM and component owners |
 
-Justification: The tests that can be automated (known frequency, expected colour output, error paths) run on every change because they are cheap and catch regressions early. The two that need a human (audio comparison, visual colour check) run before review so reviewers see the evidence. AppModel is inspected immediately because every other component depends on it, and a design flaw there gets more expensive to fix with each module built on top of it.
+Justification: The tests that can be automated (known frequency, expected colour output, error paths) run on every change because they are inexpensive and catch regressions early. The two that need a human (audio comparison, visual colour check) run before review so reviewers can examine the evidence. AppModel is inspected immediately because every other component depends on it, and a design flaw there becomes more expensive to fix as development progresses. Keeping the detailed procedures and acceptance criteria in the verification checklist also allows us to track results consistently without duplicating information in the main project plan. The verification plan explains why each method was chosen, while the checklist provides the steps and criteria used to determine whether the requirements have been met.
 
 ### How resilient is our plan?
 
