@@ -95,6 +95,3 @@ See [verification plan](verification_plan.md)
 | Merge conflicts or integration failures | Separate branches per component, reviewed pull requests, and a dedicated integration window before the 27th. |
 
 Worked scenario: If Taj is sick on the 20th, ColorMapper (due 22nd) slips. The PM asks Kevin (its backup) to take it over, and since ColorMapper only needs synthetic test inputs, it can still be done by about the 24th, inside the integration window and before the 27th deadline.
-
-Trigger rule: If a task is not In Review by its deadline, the PM checks in that day and decides whether to reassign it.
-Approach
