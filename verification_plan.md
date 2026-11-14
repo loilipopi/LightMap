@@ -2,7 +2,7 @@
 
 #### 5. How will you verify that you've met your requirements?
 
-This is our acceptance testing plan. The exact tests, their steps and what counts as each one passing are in our [verification checklist](verification_checklist.md), organised by component. This page explains the approach, why we chose it, and which requirement is checked by which method and which part of the checklist.
+This is our acceptance testing plan. The exact tests, their steps and what counts as each one passing are in our [verification checklist](verification_checklist.md), organised by component and who is responsible. This page explains the approach, why we chose it, and which requirement is checked by which method and which part of the checklist.
 
 We will use three main methods:
 
