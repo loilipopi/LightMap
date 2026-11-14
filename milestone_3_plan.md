@@ -50,12 +50,12 @@ Justification: Weekly meetings provide regular opportunities to identify problem
 
 | Component |Responsible developer | Backup Developer | Responsibilities |
 | --- | ---| ---|---|
-| AppModel | Kevin | |Maintain application state, capture status, processing settings, and the latest output colour. |
-| AppController | Kevin | |Handle user actions and coordinate communication between the application components. |
-| ControlView| Robert | |Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
-| OverlayView | Lucas | |Display the output colour and manage overlay visibility. |
-| AudioCapture | Robert | |Capture audio from the computer's default output device and manage audio capture sessions.|
-| FrequencyAnalyser | Joe | Kevin |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| AppModel | Kevin | Taj|Maintain application state, capture status, processing settings, and the latest output colour. |
+| AppController | Kevin | Joe |Handle user actions and coordinate communication between the application components. |
+| ControlView| Robert | Robert |Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
+| OverlayView | Lucas | Taj |Display the output colour and manage overlay visibility. |
+| AudioCapture | Robert | Lucas|Capture audio from the computer's default output device and manage audio capture sessions.|
+| FrequencyAnalyser | Joe | Robert |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
 | ColorMapper | Taj | Kevin |Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
 ### What is your timeline?
