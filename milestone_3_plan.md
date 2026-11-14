@@ -1,5 +1,5 @@
 
-#### How will you coordinate your work?
+### How will you coordinate your work?
 
 **Who will coordinate the work?**
 
@@ -33,8 +33,7 @@ We will also communicate asynchronously throughout the week whenever problems or
 
 If an urgent issue affects the project timeline, the PM may organize an additional short meeting.
 
-2.
-**What tools will you use to communicate?**
+### What tools will you use to communicate?
   
 |tool | purpose | |
 | --- | --- | --- |
@@ -43,27 +42,19 @@ If an urgent issue affects the project timeline, the PM may organize an addition
 | GitHub Pull Requests | Code reviews and discussions about implementation | Pull requests allow team members to examine specific code changes and provide feedback before merging.| 
 | GitHub Repository | Sharing code, documentation, and development progress| Git provides version history and makes it possible to work on separate branches without overwriting other developers' changes. |
 
-3.
 Who will own component in your architecture?
 
-| Component |Responsible developer | Responsibilities |
-| --- | ---| ---|
-| AppModel | Kevin | Maintain application state, capture status, processing settings, and the latest output colour. |
-| AppController | Kevin | Handle user actions and coordinate communication between the application components. |
-| ControlView| Robert | Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
-| OverlayView | Lucas | Display the output colour and manage overlay visibility. |
-| AudioCapture | Robert | Capture audio from the computer's default output device and manage audio capture sessions.|
-| FrequencyAnalyser | Joe | Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
-| ColorMapper | Taj | Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
+| Component |Responsible developer | Backup Developer | Responsibilities |
+| --- | ---| ---|---|
+| AppModel | Kevin | |Maintain application state, capture status, processing settings, and the latest output colour. |
+| AppController | Kevin | |Handle user actions and coordinate communication between the application components. |
+| ControlView| Robert | |Implement controls for starting/stopping capture, enabling/disabling the overlay, and displaying status or errors.|
+| OverlayView | Lucas | |Display the output colour and manage overlay visibility. |
+| AudioCapture | Robert | |Capture audio from the computer's default output device and manage audio capture sessions.|
+| FrequencyAnalyser | Joe | |Process audio samples using the Hann window function and Fast Fourier Transform (FFT).|
+| ColorMapper | Taj | |Convert frequency-magnitude pairs into colours using image-based colour maps and calculate the final RGB colour.|
 
-•
-Owning them means being responsible for writing them and making sure they are functional and correct.
-
-•
-For each component, list the one person who is in charge of getting it done.
-
-4.
-What is your timeline?
+### What is your timeline?
 
 Finish modules:
 AppModel - 18th
@@ -76,8 +67,7 @@ ColorMapper - 22nd
 
 Functional by 27th 
 
-5.
-How will you verify that you've met your requirements?
+### How will you verify that you've met your requirements?
 
 AppModel -> Review and Inspection
 We will all individually review and inspect the code against the SOLID principles 
@@ -99,24 +89,32 @@ Provide an audio with a known frequency and look for accuracy measured by %error
 ColorMapper -> test cases
 Provided a frequency volume map and colour map, the colours produced match the expected output (calculated/inferred manually)
 - start small black and white, gradients, custom map
+  
+### How will verification fit into our process?
 
-For each requirement in your requirements document, detail how you will verify it, and if you won't verify it, justify why you won't. This is called an acceptance testing plan.
+| When | What happens | Who |
+| --- | --- | --- |
+| Before opening a pull request | The owner runs their component's tests locally and posts the results in the GitHub Issue. Manual checks (AudioCapture comparison, OverlayView colour cycle) are done now, with a screenshot or short note as evidence. | Component owner |
+| On every push and pull request | Automated tests (ControlView, FrequencyAnalyser, ColorMapper) run through GitHub Actions. A pull request cannot move to Done unless they pass. | Automatic |
+| Before merging | At least one other team member (the backup owner in the table below) reviews the pull request. | Backup owner |
+| After every merge to main | The full test suite is re-run so a merge that breaks another component is caught immediately. | Automatic |
+| Right after AppModel is finished (18th) | All members individually inspect AppModel against a SOLID checklist, then compare findings in a short call. The PM records the results in the Issue. | Whole team, PM schedules |
+| Integration window (23rd–26th) | End-to-end test with real game audio, from AudioCapture through to the OverlayView colour. | Whole team |
 
-If you propose to write a tests, what exact tests will you conduct and what will count as each test passing?
+Justification: The tests that can be automated (known frequency, expected colour output, error paths) run on every change because they are cheap and catch regressions early. The two that need a human (audio comparison, visual colour check) run before review so reviewers see the evidence. AppModel is inspected immediately because every other component depends on it, and a design flaw there gets more expensive to fix with each module built on top of it.
 
-If you propose to conduct reviews or inspections, how will you analyze the code?
+### How resilient is our plan?
 
-If you write a proof, what property will you prove?
+| Crisis | How the plan responds |
+| --- | --- |
+| Illness or injury (a member is out for several days) | Every component has a backup owner who also reviews its pull requests, so they already know the code. The PM reassigns the task the same day. Tasks on the board include acceptance criteria, so someone else can pick them up without a handover. The 23rd–26th window absorbs a slip. |
+| PM is unavailable | Kevin takes over the board and meeting agenda. The agenda format is fixed (progress, problems, test results, next week), so it is easy to run. |
+| API limitation (AudioCapture cannot capture the default output device on someone's OS, or needs special permissions) | AudioCapture is due first (18th), so the problem shows up early. Fallback: capture through a loopback or virtual audio device, or read audio from a file, so the other modules are not blocked. The AudioCapture interface stays narrow so the audio source can be swapped without touching other components. |
+| Difficult-to-fix bug (FFT accuracy, colour mapping) | Time-box: if someone is stuck for more than a day, they post in Discord and a second person pairs with them. Our tests start small (1–2 frequencies, black and white maps), so the bug is isolated early. FrequencyAnalyser can fall back to an existing FFT library if the custom one fails. |
+| A late module blocks the others | FrequencyAnalyser and ColorMapper are tested with synthetic inputs (a known-frequency audio file, a hand-made frequency map), so they do not wait on AudioCapture or AppModel. |
+| Merge conflicts or integration failures | Separate branches per component, reviewed pull requests, and a dedicated integration window before the 27th. |
 
-If you conduct a review or inspection, what aspects of the code will you inspect to verify the requirement is met?
+Worked scenario: If Taj is sick on the 20th, ColorMapper (due 22nd) slips. The PM asks Kevin (its backup) to take it over, and since ColorMapper only needs synthetic test inputs, it can still be done by about the 24th, inside the integration window and before the 27th deadline.
 
-For all of the requirements, how will your verifications be integrated into your process? Will you run automated tests after every build? Before every commit? When will you conduct inspections and who will be involved?
-
-For each answer you provide, provide a written justification that explains the rationale behind your decisions, given what you know about what you need to build. I want to incentivize you to think deeply about each of these choices, to make sure your process decision actually makes sense.
-
-To make a good plan, brainstorm disasters that might happen and test your plan against them. Illness, injury, API limitations, difficult to fix bugs: how resilient is your plan to all of these crises?
-
+Trigger rule: If a task is not In Review by its deadline, the PM checks in that day and decides whether to reassign it.
 Approach
-Developers lead
-
-Items 1-3 above should be relatively straightforward. Devising a set of milestones and indicating a clear verification plan, however, is more difficult. A significant component is your approach to testing. Describe your testing plan in reasonable detail. From an implementation perspective, you may not have the time to build out all the features that you listed and you should prioritize your design effort with a focus on building a minimum viable product. How you prioritize features and integrate this prioritization into your plan matters.
