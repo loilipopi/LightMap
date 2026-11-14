@@ -19,7 +19,7 @@ Tasks will be organized like:
 - In Review: Completed tasks awaiting testing or code review.
 - Done: Tasks that have been tested, reviewed, and merged.
 
-Justification:
+Justification: Github provides a central hub to organize and view all of our tasks making it a great tool for project management
 
 **Will you have meetings? How frequently? Who plans their agendas?**
 
