@@ -76,7 +76,7 @@ Finish modules:
 
 - ColorMapper - 22nd
 
-Functional by 27th 
+- Functional by 27th 
 
 ### How will you verify that you've met your requirements?
 
