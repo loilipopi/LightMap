@@ -23,9 +23,7 @@ We will use three main methods:
 | Whole system | [Checklist: Integration](verification_checklist.md#3-integration-23rd-to-26th) | CA-01, FFT-04, CM-02, D-01, D-02 end to end |
 | AppModel design | [Checklist: Inspection](verification_checklist.md#2-appmodel-design-inspection-within-one-day-of-appmodel-being-finished) | Design properties behind CA-06, CM-03, D-01, CA-07, D-03 |
 
-##### Parameters the tests depend on
-
-Several requirements leave a value open, and we cannot compute expected results without it: the window size N, the chunk time t, the form of the Hann window, the frequency axis of the colour map, the averaging formula for D-02, the minimum number of colour map templates, and the colour tolerances. We fix all of these before writing the tests, in [section 0 of the checklist](verification_checklist.md#0-decide-first-tests-depend-on-these), because every expected value in the tests is calculated from them.
+### Main tests outlined in requirements 
 
 ##### Capturing Audio
 
