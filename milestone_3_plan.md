@@ -19,6 +19,8 @@ Tasks will be organized like:
 - In Review: Completed tasks awaiting testing or code review.
 - Done: Tasks that have been tested, reviewed, and merged.
 
+Justification:
+
 **Will you have meetings? How frequently? Who plans their agendas?**
 
 We will hold one weekly meeting, lasting approximately 30 minutes, to discuss development progress.
@@ -33,16 +35,18 @@ We will also communicate asynchronously throughout the week whenever problems or
 
 If an urgent issue affects the project timeline, the PM may organize an additional short meeting.
 
+Justification: 
+
 ### What tools will you use to communicate?
   
 |tool | purpose | |
 | --- | --- | --- |
 | Discord & Instagram | Daily communication, questions, and voice meetings | Compared with email, Discord and Instagram allow faster discussions and easier communication among multiple group members. |
-| GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. While Instagram gives group members efficient communication and progress tracking. |
+| GitHub Issues & Instagram | Task assignment, progress tracking, and bug reporting | Compared with separate applications such as Trello, GitHub Issues keeps tasks directly connected to the repository. While Instagram gives group members easy communication and progress reporting. |
 | GitHub Pull Requests | Code reviews and discussions about implementation | Pull requests allow team members to examine specific code changes and provide feedback before merging.| 
 | GitHub Repository | Sharing code, documentation, and development progress| Git provides version history and makes it possible to work on separate branches without overwriting other developers' changes. |
 
-Who will own component in your architecture?
+### Who will own component in your architecture?
 
 | Component |Responsible developer | Backup Developer | Responsibilities |
 | --- | ---| ---|---|
