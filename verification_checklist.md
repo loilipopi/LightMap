@@ -19,7 +19,7 @@ Owners, backups and due dates follow the timeline. Backup owners are proposals, 
 
 Each component is done when every box under it is ticked.
 
-### AppModel: Kevin (backup Lucas), due 18th
+### AppModel: Kevin, due 18th
 
 - [ ] **(A)** Status can only be Stopped, Active or Error, starts as Stopped, and cannot hold any other value (CA-06)
 - [ ] **(A)** Setting a new latest colour replaces the old one (D-01)
@@ -27,7 +27,7 @@ Each component is done when every box under it is ticked.
 - [ ] **(I)** SOLID design inspection passed (see section 2)
 - [ ] Tests pass in CI, backup owner has reviewed the pull request, Issue moved to Done
 
-### AudioCapture: Robert (backup Joe), due 18th
+### AudioCapture: Robert, due 18th
 
 - [ ] **(A)** CA-02: fake source outputs a ramp (sample i = i). Every chunk has exactly t × fs samples and the joined chunks equal the source (no gaps, overlaps or reordering)
 - [ ] **(A)** CA-03: after Stop, zero chunks are delivered for 2 seconds
@@ -41,7 +41,7 @@ Each component is done when every box under it is ticked.
 - [ ] **(M)** CA-08: close the app during real capture. Another app can capture the device and no process remains in Task Manager
 - [ ] Tests pass in CI, evidence attached to the Issue, backup owner has reviewed, Issue moved to Done
 
-### ControlView: Robert (backup Lucas), due 18th
+### ControlView: Robert, due 18th
 
 - [ ] **(A)** Start and Stop controls call the controller with the right action
 - [ ] **(A)** Overlay enable and disable controls call the controller with the right action
@@ -50,7 +50,7 @@ Each component is done when every box under it is ticked.
 - [ ] **(A)** The coverage report shows every branch of the start/stop, overlay enable/disable and status functions is exercised
 - [ ] Tests pass in CI, backup owner has reviewed, Issue moved to Done
 
-### OverlayView: Lucas (backup Robert), due 19th
+### OverlayView: Lucas, due 19th
 
 - [ ] **(M)** D-01: drive the overlay with a colour-cycling function and screenshot it at several points. Sampled pixels match the commanded colour within ±2 per channel
 - [ ] **(A)** D-01: send two colours back to back to a mock view. The last one is shown
@@ -61,7 +61,7 @@ Each component is done when every box under it is ticked.
 - [ ] **(M)** D-05: close with the close button and with any menu exit. The overlay is gone and no process remains
 - [ ] Tests pass in CI, evidence attached to the Issue, backup owner has reviewed, Issue moved to Done
 
-### AppController: Kevin (backup Joe), due 20th
+### AppController: Kevin, due 20th
 
 All **(A)**, using a real AppModel with mock AudioCapture, ControlView and OverlayView.
 
@@ -74,7 +74,7 @@ All **(A)**, using a real AppModel with mock AudioCapture, ControlView and Overl
 - [ ] Application shutdown: capture released once and overlay closed (CA-08, D-05)
 - [ ] Tests pass in CI, backup owner has reviewed, Issue moved to Done
 
-### FrequencyAnalyser: Joe (backup Taj), due 20th
+### FrequencyAnalyser: Joe, due 20th
 
 All **(A)**. Start with 1 to 2 clean tones, then mixes, then game audio.
 
@@ -88,7 +88,7 @@ All **(A)**. Start with 1 to 2 clean tones, then mixes, then game audio.
 - [ ] FFT-05: full output matches `abs(rfft(x * hann)) / N` from NumPy within 1e-6 on every bin
 - [ ] Tests pass in CI, backup owner has reviewed, Issue moved to Done
 
-### ColorMapper: Taj (backup Kevin), due 22nd
+### ColorMapper: Taj, due 22nd
 
 All **(A)** except CM-03's inspection. Start with black and white, then gradients, then a custom map.
 
