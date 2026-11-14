@@ -35,7 +35,7 @@ We will also communicate asynchronously throughout the week whenever problems or
 
 If an urgent issue affects the project timeline, the PM may organize an additional short meeting.
 
-Justification: 
+Justification: Weekly meetings provide regular opportunities to identify problems and coordinate work without taking too much time away from development. Other asynchronous communication allows smaller problems to be addressed immediately.
 
 ### What tools will you use to communicate?
   
