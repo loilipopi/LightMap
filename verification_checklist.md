@@ -3,7 +3,7 @@
 Legend: **(A)** automated test, **(M)** manual test with evidence posted in the GitHub Issue, **(I)** inspection. IDs are prefixed by section: **CA** Capturing Audio, **FFT** FFT to Analyze Audio, **CM** Color Mapping, **D** Display.
 
 ## 0. Pre Components
-
+- [ ] Make sure everyone knows how to use github and setup an actual workflow 
 - [ ] Window size N (proposed 1024) and chunk time t (proposed t = N / fs, so one chunk = one analysis window, no overlap)
 - [ ] Hann form (proposed periodic: `0.5 * (1 - cos(2πn / N))`)
 - [ ] Frequency axis of the colour map (proposed: 0 Hz = first pixel, fs / 2 = last pixel)
