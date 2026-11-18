@@ -11,6 +11,6 @@ jobs:
         with:
           python-version: '3.12'          # match the version you develop on
           cache: pip
-          cache-dependency-path: requirements-test.txt
-      - run: pip install -r requirements-test.txt
+          cache-dependency-path: src/requirements-test.txt
+      - run: pip install -r src/requirements-test.txt
       - run: pytest
