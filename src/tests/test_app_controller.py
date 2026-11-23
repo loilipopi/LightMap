@@ -6,7 +6,13 @@ Uses a real AppModel and the fakes from conftest.py for everything else.
 Convention: FakeMapper turns a spectrum with k pairs into the colour (k, 0, 0).
 """
 
+from threading import Thread
+
 import pytest
+from PIL import Image
+
+from lightmap import app_controller
+from lightmap.audio_analyser import FrequencyAnalyser
 
 SPECTRUM_1 = [(100.0, 1.0)]                    # -> colour (1, 0, 0)
 SPECTRUM_2 = [(100.0, 1.0), (200.0, 2.0)]      # -> colour (2, 0, 0)
@@ -181,3 +187,193 @@ def test_close_without_capture_running_is_safe(parts):
     parts.controller.close()
     assert parts.model.capture_status == "stopped"
     assert parts.controls.closed is True and parts.overlay.closed is True
+
+
+def test_capture_can_report_an_error_before_start_returns(parts, monkeypatch):
+    start = parts.capture.start
+
+    def start_and_fail(on_samples, on_error):
+        start(on_samples, on_error)
+        worker = Thread(target=parts.capture.on_error, args=("device error",), daemon=True)
+        worker.start()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+
+    monkeypatch.setattr(parts.capture, "start", start_and_fail)
+    parts.controller.start()
+
+    assert parts.controls.statuses == ["stopped", "error"]
+    assert parts.controls.errors == ["device error"]
+    assert parts.capture.stop_calls == 1
+
+
+def test_stop_failure_is_reported_and_cleanup_retried_before_restart(parts, monkeypatch):
+    parts.controller.start()
+    stop = parts.capture.stop
+
+    def fail_to_stop():
+        raise RuntimeError("device busy")
+
+    monkeypatch.setattr(parts.capture, "stop", fail_to_stop)
+    parts.controller.stop()
+    parts.controller.start()
+    assert parts.model.capture_status == "error"
+    assert parts.controls.errors == ["device busy", "device busy"]
+    assert parts.capture.start_calls == 1
+
+    monkeypatch.setattr(parts.capture, "stop", stop)
+    parts.controller.start()
+    assert parts.capture.start_calls == 2
+    assert parts.capture.stop_calls == 1
+    assert parts.model.capture_status == "active"
+
+
+def test_stop_and_restart_ignore_callbacks_from_old_session(parts):
+    parts.controller.start()
+    old_samples = parts.capture.on_samples
+    old_error = parts.capture.on_error
+    parts.controller.stop()
+    old_samples(SAMPLES, RATE)
+    assert parts.analyser.calls == []
+
+    parts.controller.start()
+    old_samples(SAMPLES, RATE)
+    old_error("stale error")
+    assert parts.analyser.calls == []
+    assert parts.controls.errors == []
+    assert parts.model.capture_status == "active"
+    assert parts.capture.active
+
+
+@pytest.mark.parametrize("rate", [0, -1, float("nan"), 48000.5, True])
+def test_invalid_sample_rate_does_not_reach_analyser(parts, rate):
+    parts.controller.start()
+    with pytest.raises(ValueError, match="sample_rate"):
+        parts.capture.on_samples(SAMPLES, rate)
+    assert parts.analyser.calls == []
+    assert parts.model.output_colour == (0, 0, 0)
+
+
+@pytest.mark.parametrize("active", [False, True])
+def test_close_releases_capture_once_and_ignores_subsequent_actions(parts, active):
+    if active:
+        parts.controller.start()
+    parts.controller.set_overlay_enabled(True)
+    assert parts.model.overlay_enabled
+    parts.controller.close()
+    parts.controller.close()
+    parts.controller.start()
+    parts.controller.stop()
+    parts.controller.set_overlay_enabled(True)
+    if active:
+        parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.capture.stop_calls == 1
+    assert parts.capture.start_calls == int(active)
+    assert parts.model.overlay_enabled is False
+    assert parts.analyser.calls == []
+    assert parts.overlay.visible is False
+    assert parts.overlay.closed and parts.controls.closed
+
+
+def test_close_still_closes_views_if_releasing_capture_fails(parts, monkeypatch):
+    stop = parts.capture.stop
+
+    def fail_to_stop():
+        raise RuntimeError("release failed")
+
+    monkeypatch.setattr(parts.capture, "stop", fail_to_stop)
+    parts.controller.close()
+
+    assert parts.controls.errors == ["release failed"]
+    assert parts.model.capture_status == "error"
+    assert parts.overlay.closed and parts.controls.closed
+    monkeypatch.setattr(parts.capture, "stop", stop)
+    parts.controller.close()
+    assert parts.model.capture_status == "stopped"
+    assert parts.capture.stop_calls == 1
+
+
+@pytest.mark.parametrize("initial_rate_known", [False, True])
+def test_image_mapper_uses_reported_sample_rate_and_real_analyser(
+    parts, tmp_path, monkeypatch, initial_rate_known
+):
+    path = tmp_path / "map.png"
+    with Image.new("L", (2, 2), 128) as image:
+        image.putpixel((1, 0), 255)
+        image.save(path)
+
+    configurations = []
+
+    def configure_mapper(pixels, settings):
+        configurations.append((pixels, settings))
+        return parts.mapper
+
+    monkeypatch.setattr(app_controller, "ColourMapper", configure_mapper)
+    analyser = FrequencyAnalyser()
+    settings = {"gain": 2.0}
+    if initial_rate_known:
+        settings["sample_rate"] = RATE
+    controller = app_controller.AppController(
+        parts.model,
+        parts.capture,
+        analyser,
+        colour_map_path=path,
+        colour_map_settings=settings,
+    )
+    assert len(configurations) == int(initial_rate_known)
+    # The controller uses the decoded pixels even when another rate is used.
+    path.unlink()
+    spectra = []
+
+    def map_spectrum(spectrum):
+        spectra.append(spectrum)
+        return (1, 2, 3)
+
+    monkeypatch.setattr(parts.mapper, "map_colour", map_spectrum)
+    controller.set_views(parts.controls, parts.overlay)
+    for window_count, sample_rate in enumerate((RATE, 44100, 44100)):
+        controller.start()
+        parts.capture.on_samples([0.0] * 512, sample_rate)
+        assert len(spectra) == window_count
+        parts.capture.on_samples([0.0] * 512, sample_rate)
+        assert len(spectra[-1]) == 513
+        assert spectra[-1][-1] == (sample_rate / 2, 0.0)
+        controller.stop()
+
+    assert configurations[0][0] == [
+        [(128, 128, 128), (255, 255, 255)],
+        [(128, 128, 128), (128, 128, 128)],
+    ]
+    assert [settings["sample_rate"] for _, settings in configurations] == [RATE, 44100]
+    assert parts.model.settings == {"sample_rate": 44100, "gain": 2.0}
+    assert parts.overlay.colour == (1, 2, 3)
+
+
+def test_colour_map_path_rejects_missing_or_invalid_images(parts, tmp_path):
+    path = tmp_path / "map.png"
+    build = app_controller.AppController
+    with pytest.raises(FileNotFoundError):
+        build(parts.model, parts.capture, parts.analyser, colour_map_path=path)
+    path.write_text("not an image")
+    with pytest.raises(ValueError, match="cannot read colour map image"):
+        build(parts.model, parts.capture, parts.analyser, colour_map_path=path)
+
+
+def test_constructor_rejects_missing_or_conflicting_mapper_configuration(parts, tmp_path):
+    build = app_controller.AppController
+    args = (parts.model, parts.capture, parts.analyser)
+    with pytest.raises(ValueError, match="configured mapper or a colour map path"):
+        build(*args)
+    with pytest.raises(ValueError, match="configured mapper or a colour map path"):
+        build(*args, parts.mapper, colour_map_path=tmp_path / "map.png")
+
+
+def test_constructor_rejects_invalid_colour_map_sample_rate(parts, tmp_path):
+    with pytest.raises(ValueError, match="sample_rate"):
+        app_controller.AppController(
+            parts.model,
+            parts.capture,
+            parts.analyser,
+            colour_map_path=tmp_path / "map.png",
+            colour_map_settings={"sample_rate": float("inf")},
+        )
