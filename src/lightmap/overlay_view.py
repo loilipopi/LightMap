@@ -16,7 +16,9 @@ class OverlayView:
         Preconditions:
             colour contains three integers from 0 to 255.
         Postconditions:
-            The overlay's colour is set to colour.
+            The overlay's colour is set to colour (rendered screen
+            pixels match within +/-2 per RGB channel in overlay
+            screenshots).
             Its visibility is unchanged.
         """
         raise NotImplementedError

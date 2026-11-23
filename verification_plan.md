@@ -29,23 +29,23 @@ We will use three main methods:
 
 | Req | Method | What we check | Exact tests |
 | --- | --- | --- | --- |
-| CA-01 | M | Captured audio matches an external recorder's recording of the same playback, on more than one output device. | AudioCapture |
-| CA-02 | A | Chunks are the same size, in order, with no gaps or overlaps. | AudioCapture |
+| CA-01 | M | Captured audio matches Audacity's (Windows WASAPI loopback) recording of the same playback, on more than one output device. | AudioCapture |
+| CA-02 | A | Chunks are the same size (`t = N / fs`, `N = 1024` samples), in order, with no gaps or overlaps. | AudioCapture |
 | CA-03 | A and M | No chunks are delivered after Stop. | AudioCapture, AppController |
-| CA-04 | M and I | Playback is not degraded by capture, and the device is not opened exclusively. | AudioCapture |
+| CA-04 | M and I | Playback is not degraded by capture (verified with Audacity WASAPI loopback), and the device is not opened exclusively. | AudioCapture |
 | CA-05 | A and M | Start, Stop, Start repeated 10 times works without leaking threads or handles. | AudioCapture, AppController |
 | CA-06 | A and M | The displayed status matches the model's Stopped, Active or Error state, including injected errors and an unplugged device. | AppModel, ControlView, AudioCapture, AppController |
 | CA-07 | A | Pressing Start repeatedly never opens more than one session. | AppController |
 | CA-08 | A and M | Capture resources are released when the application closes. | AudioCapture, AppController |
 
-**Justification:** Everything that depends on the real Windows/OS audio stack (CA-01, CA-04, and the device-removal case) needs a real device, so those are manual, using an independent recorder as ground truth. Everything about the order, size and number of chunks is pure logic, so a fake source makes it deterministic and cheap to run on every push. CA-04 also gets an inspection because "not exclusive mode" is visible in the code but hard to see in a recording.
+**Justification:** Everything that depends on the real Windows/OS audio stack (CA-01, CA-04, and the device-removal case) needs a real device, so those are manual, using Audacity (Windows WASAPI loopback) as ground truth. Everything about the order, size and number of chunks is pure logic, so a fake source makes it deterministic and cheap to run on every push. CA-04 also gets an inspection because "not exclusive mode" is visible in the code but hard to see in a recording.
 
 ##### FFT to Analyze Audio
 
 | Req | Method | What we check | Exact tests |
 | --- | --- | --- | --- |
-| FFT-01 | A | Samples are split into complete N-sample windows in order, and leftover samples wait for the next window. | FrequencyAnalyser |
-| FFT-02 | A | The Hann window is really applied (all-ones input and a bin-centred sine give the expected magnitudes). | FrequencyAnalyser |
+| FFT-01 | A | Samples are split into complete `N`-sample windows (`N = 1024`) in order, and leftover samples wait for the next window. | FrequencyAnalyser |
+| FFT-02 | A | The periodic Hann window (`0.5 * (1 - cos(2πn / N))`) is really applied (all-ones input and a bin-centred sine give the expected magnitudes). | FrequencyAnalyser |
 | FFT-03 | A | Each result has bins k = 0 through floor(N / 2) for even and odd N. | FrequencyAnalyser |
 | FFT-04 | A | Bin frequency is k × fs / N, and known tones peak in the nearest bin. | FrequencyAnalyser |
 | FFT-05 | A | The magnitude formula is correct in isolation and against a NumPy reference. | FrequencyAnalyser |
@@ -57,7 +57,7 @@ We will use three main methods:
 | Req | Method | What we check | Exact tests |
 | --- | --- | --- | --- |
 | CM-01 | A | Every bin, including the first and last, influences the output colour. | ColorMapper |
-| CM-02 | A | Linear mapping onto the colour map matches hand-computed colours. | ColorMapper |
+| CM-02 | A | Linear mapping onto the colour map (`0 Hz` = first pixel, `fs / 2` = last pixel) matches hand-computed colours within ±1 per RGB channel. | ColorMapper |
 | CM-03 | I and A | Enough templates are provided and each one loads and produces a valid colour. | ColorMapper |
 
 **Justification:** The mapper is a pure function from bins and a map to a colour, so automated tests with hand-computed answers fit well. We start with black and white because the correct answer is obvious by hand, then gradients, then custom maps. CM-03 is partly an inspection because "multiple templates are provided" is a statement about what ships, not about behaviour.
@@ -66,13 +66,13 @@ We will use three main methods:
 
 | Req | Method | What we check | Exact tests |
 | --- | --- | --- | --- |
-| D-01 | M and A | The overlay shows the latest colour it was given (real screen pixels, and last-colour-wins with a mock view). | OverlayView, AppModel |
-| D-02 | A | The displayed colour equals the hand-computed average over the colour map, and a uniform map gives that colour. | ColorMapper |
+| D-01 | M and A | The overlay shows the latest colour it was given (real screen pixels within ±2 per RGB channel, and last-colour-wins with a mock view). | OverlayView, AppModel |
+| D-02 | A | The displayed colour equals the hand-computed magnitude-weighted mean RGB over the colour map (within ±1 per RGB channel), and a uniform map gives that colour. | ColorMapper |
 | D-03 | M and A | Once enabled, the overlay stays visible over other windows and a fullscreen or borderless game until disabled. | OverlayView, AppController |
 | D-04 | M and A | Once disabled, the overlay stays hidden (even as colours arrive) until re-enabled, and then shows the latest colour. | OverlayView, AppController |
 | D-05 | A and M | Closing the application closes the overlay and leaves no process behind. | OverlayView, AppController |
 
-**Justification:** The overlay is the one component whose job is what appears on the screen, so a human looking at it is not enough: we sample real pixels from a screenshot so the comparison is exact. The state logic (shown, hidden, closed) is checked with a mock view so it runs on every push. D-02 is tested through the mapper because that is where the averaging happens, and the uniform-colour map gives an answer that does not depend on the formula, which makes a good sanity check.
+**Justification:** The overlay is the one component whose job is what appears on the screen, so a human looking at it is not enough: we sample real pixels from a screenshot so the comparison is exact (within ±2 per RGB channel). The state logic (shown, hidden, closed) is checked with a mock view so it runs on every push. D-02 is tested through the mapper because that is where the magnitude-weighted mean RGB averaging happens, and the uniform-colour map gives an answer that does not depend on the formula, which makes a good sanity check.
 
 ##### AppController tests
 

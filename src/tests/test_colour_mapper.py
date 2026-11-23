@@ -1,17 +1,13 @@
 """ColourMapper tests (owner: Taj).
 
-Requirements covered: CM-01, CM-02 (partly), CM-03, D-02 (partly).
+Requirements covered: CM-01, CM-02, CM-03, D-02.
 
-The stubs do not say which keys `settings` needs, or how a
-(frequency, magnitude) pair becomes a position on the colour map. So the
-tests below only check things that hold for ANY sensible mapping:
-  * a uniform map always gives that colour,
-  * the result is an average of per-pair colours and stays inside the map's
-    colour range,
-  * every bin in the spectrum influences the result,
-  * inputs are not modified and settings are copied.
-The exact-colour tests for CM-02 and D-02 are skipped placeholders at the
-bottom until the mapping is specified.
+Confirmed specification:
+  * Frequency axis of the colour map: linear mapping where
+    0 Hz = first pixel and fs / 2 = last pixel.
+  * D-02 averaging formula: magnitude-weighted mean RGB of the colours
+    that the frequency bins map to.
+  * Colour tolerance: +-1 per RGB channel for ColourMapper.
 """
 
 import copy
@@ -22,9 +18,12 @@ import pytest
 
 from lightmap.colour_mapper import ColourMapper
 
-# TODO(Taj): put valid settings here once the colour-mapping design
-# specification says which keys exist (e.g. maximum frequency and magnitude).
-SETTINGS: dict[str, float] = {}
+FS = 48000.0
+NYQUIST = FS / 2.0
+CHANNEL_TOLERANCE = 1
+
+# Update the key name here if ColourMapper expects a different settings key for fs.
+SETTINGS: dict[str, float] = {"sample_rate": FS}
 
 
 # ---------------------------------------------------------------- helpers
@@ -61,6 +60,12 @@ def assert_valid_colour(colour):
         assert 0 <= channel <= 255
 
 
+def assert_colour_close(actual, expected, tolerance=CHANNEL_TOLERANCE):
+    assert_valid_colour(actual)
+    for got, want in zip(actual, expected):
+        assert abs(got - want) <= tolerance
+
+
 # ------------------------------------------------------ output is a colour
 
 @pytest.mark.parametrize("name", SPECTRA)
@@ -68,7 +73,7 @@ def test_result_is_an_rgb_tuple_of_integers_0_to_255(name):
     assert_valid_colour(make_mapper(gradient_map()).map_colour(SPECTRA[name]))
 
 
-# ------------------------------------------- D-02: the averaged colour
+# ------------------------------------------- D-02: magnitude-weighted mean RGB
 
 @pytest.mark.parametrize("name", SPECTRA)
 def test_d02_uniform_map_gives_that_colour_for_any_spectrum(name):
@@ -86,14 +91,23 @@ def test_d02_result_stays_inside_the_colour_range_of_the_map(name):
         assert min(values) <= result[channel] <= max(values)
 
 
-def test_d02_result_is_the_average_of_the_per_pair_colours():
+def test_d02_result_is_the_magnitude_weighted_mean_of_the_per_pair_colours():
     mapper = make_mapper(distinct_map())
-    spectrum = [(0.0, 0.0), (500.0, 0.2), (5000.0, 0.9), (12000.0, 0.4), (23000.0, 1.0), (1e9, 1e9)]
+    spectrum = [
+        (0.0, 0.1),
+        (500.0, 0.2),
+        (5000.0, 0.9),
+        (12000.0, 0.4),
+        (NYQUIST, 1.0),
+    ]
     per_pair = [mapper._colour_for_pair(f, m) for f, m in spectrum]
-    expected = [sum(colour[i] for colour in per_pair) / len(per_pair) for i in range(3)]
+    total_mag = sum(m for _, m in spectrum)
+    expected = [
+        sum(m * colour[i] for (_, m), colour in zip(spectrum, per_pair)) / total_mag
+        for i in range(3)
+    ]
     result = mapper.map_colour(spectrum)
-    for got, want in zip(result, expected):
-        assert abs(got - want) <= 1.0        # allows rounding or truncation
+    assert_colour_close(result, expected)
 
 
 def test_d02_a_single_pair_gives_that_pairs_colour():
@@ -101,15 +115,44 @@ def test_d02_a_single_pair_gives_that_pairs_colour():
     assert mapper.map_colour([(5000.0, 0.9)]) == mapper._colour_for_pair(5000.0, 0.9)
 
 
+def test_d02_hand_computed_spectra_give_the_expected_magnitude_weighted_average():
+    """Hand-computed magnitude-weighted mean RGB over a 3-pixel custom map
+    where 0 Hz -> red (255, 0, 0), fs/4 -> green (0, 255, 0),
+    and fs/2 -> blue (0, 0, 255)."""
+    rgb_map = [[(255, 0, 0), (0, 255, 0), (0, 0, 255)]]
+    mapper = make_mapper(rgb_map)
+
+    # Equal magnitudes (1, 1, 1) -> (85, 85, 85)
+    assert_colour_close(
+        mapper.map_colour([(0.0, 1.0), (FS / 4, 1.0), (NYQUIST, 1.0)]),
+        (85.0, 85.0, 85.0),
+    )
+    # Weights 3:1 between red and blue -> (191.25, 0.0, 63.75)
+    assert_colour_close(
+        mapper.map_colour([(0.0, 3.0), (NYQUIST, 1.0)]),
+        (191.25, 0.0, 63.75),
+    )
+    # Weights 1:2:5 -> R=255/8=31.875, G=510/8=63.75, B=1275/8=159.375
+    assert_colour_close(
+        mapper.map_colour([(0.0, 1.0), (FS / 4, 2.0), (NYQUIST, 5.0)]),
+        (31.875, 63.75, 159.375),
+    )
+    # Zero-magnitude bin has weight 0; positive bin determines output
+    assert_colour_close(
+        mapper.map_colour([(0.0, 0.0), (FS / 4, 2.5)]),
+        (0.0, 255.0, 0.0),
+    )
+
+
 # --------------------------------------- CM-01: every bin is included
 
-@pytest.mark.parametrize("length", [2, 9])
+@pytest.mark.parametrize("length", [2, 9, 513])
 def test_cm01_every_position_in_the_spectrum_changes_the_result(length):
     """Replace one pair of an otherwise identical spectrum with a pair that
     lands on a different colour. The result must change wherever the replaced
-    pair sits - including the first and last bins."""
+    pair sits - including the first (k=0) and last (k=floor(N/2)) bins."""
     mapper = make_mapper(distinct_map())
-    low, high = (0.0, 0.0), (1e9, 1e9)       # opposite edges of the map
+    low, high = (0.0, 0.01), (NYQUIST, 10.0)   # opposite edges of [0 Hz, fs/2]
     assert mapper._colour_for_pair(*low) != mapper._colour_for_pair(*high), (
         "test setup: these two pairs must map to different colours"
     )
@@ -118,6 +161,42 @@ def test_cm01_every_position_in_the_spectrum_changes_the_result(length):
         spectrum = [low] * length
         spectrum[k] = high
         assert mapper.map_colour(spectrum) != baseline, f"bin {k} was ignored"
+
+
+# ----------------------------------------- CM-02: linear frequency-axis map
+
+def test_cm02_two_pixel_black_and_white_map():
+    """Map = one row [black, white]. 0 Hz maps to the first pixel (black),
+    fs / 2 to the last pixel (white), and fs / 4 to the midpoint (linear),
+    each within +-1 per RGB channel."""
+    bw_map = [[(0, 0, 0), (255, 255, 255)]]
+    mapper = make_mapper(bw_map)
+
+    assert_colour_close(mapper.map_colour([(0.0, 1.0)]), (0.0, 0.0, 0.0))
+    assert_colour_close(mapper.map_colour([(NYQUIST, 1.0)]), (255.0, 255.0, 255.0))
+    assert_colour_close(mapper.map_colour([(FS / 4, 1.0)]), (127.5, 127.5, 127.5))
+
+
+def test_cm02_gradient_and_custom_maps_match_hand_computed_colours():
+    """Gradient map and custom map with known pixels; hand-computed expected
+    colours along [0 Hz, fs / 2], within +-1 per RGB channel."""
+    # 4-pixel linear gradient: pixels at 0, fs/6, fs/3, fs/2
+    grad = [[(0, 255, 0), (85, 170, 85), (170, 85, 170), (255, 0, 255)]]
+    grad_mapper = make_mapper(grad)
+    assert_colour_close(grad_mapper.map_colour([(0.0, 1.0)]), (0.0, 255.0, 0.0))
+    assert_colour_close(grad_mapper.map_colour([(FS / 6, 1.0)]), (85.0, 170.0, 85.0))
+    assert_colour_close(grad_mapper.map_colour([(FS / 4, 1.0)]), (127.5, 127.5, 127.5))
+    assert_colour_close(grad_mapper.map_colour([(FS / 3, 1.0)]), (170.0, 85.0, 170.0))
+    assert_colour_close(grad_mapper.map_colour([(NYQUIST, 1.0)]), (255.0, 0.0, 255.0))
+
+    # 3-pixel custom map: red at 0 Hz, green at fs/4, blue at fs/2
+    custom = [[(255, 0, 0), (0, 255, 0), (0, 0, 255)]]
+    custom_mapper = make_mapper(custom)
+    assert_colour_close(custom_mapper.map_colour([(0.0, 1.0)]), (255.0, 0.0, 0.0))
+    assert_colour_close(custom_mapper.map_colour([(FS / 8, 1.0)]), (127.5, 127.5, 0.0))
+    assert_colour_close(custom_mapper.map_colour([(FS / 4, 1.0)]), (0.0, 255.0, 0.0))
+    assert_colour_close(custom_mapper.map_colour([(3 * FS / 8, 1.0)]), (0.0, 127.5, 127.5))
+    assert_colour_close(custom_mapper.map_colour([(NYQUIST, 1.0)]), (0.0, 0.0, 255.0))
 
 
 # ------------------------------------------------- general behaviour
@@ -142,9 +221,6 @@ def test_inputs_are_not_modified():
 
 
 def test_settings_are_copied_at_construction():
-    # With SETTINGS empty this can only add a key, so it catches little. It
-    # becomes a real check once SETTINGS holds the actual keys, because then
-    # the loop below changes values the mapper depends on.
     settings = dict(SETTINGS)
     mapper = make_mapper(distinct_map(), settings)
     before = mapper.map_colour(SPECTRA["many-bins"])
@@ -161,29 +237,6 @@ def test_colour_map_is_not_needed_after_construction():
     for row in cmap:
         row[:] = [(0, 0, 0)] * len(row)
     assert mapper.map_colour(SPECTRA["many-bins"]) == before
-
-
-# --------------------------- CM-02 / D-02 exact colours: need the mapping spec
-
-@pytest.mark.skip(
-    reason="TODO: needs the mapping spec. Write once the settings keys and the "
-    "(frequency, magnitude) -> pixel rule are fixed."
-)
-def test_cm02_two_pixel_black_and_white_map():
-    """Map = one row [black, white]. The lowest frequency must land on the
-    first pixel, the highest on the last, the midpoint in the middle (linear).
-    Compare against colours calculated by hand, within +-1 per channel."""
-
-
-@pytest.mark.skip(reason="TODO: needs the mapping spec (see above).")
-def test_cm02_gradient_and_custom_maps_match_hand_computed_colours():
-    """Gradient map, then a custom map with known pixels; hand-computed
-    expected colours, +-1 per channel."""
-
-
-@pytest.mark.skip(reason="TODO: needs the averaging formula decided (checklist section 0).")
-def test_d02_hand_computed_spectra_give_the_expected_average():
-    """A few small spectra whose averaged colour you worked out by hand."""
 
 
 # ------------------------------------------------ CM-03: colour map templates

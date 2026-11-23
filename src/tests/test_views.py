@@ -11,7 +11,8 @@ through the toolkit's test hooks), delete the skip marker and write the body.
 
 The behaviour that routes through the views (status shown, overlay shown or
 hidden, closed on exit) is already covered from the controller's side in
-test_app_controller.py. Pixel-level checks stay manual (see the checklist).
+test_app_controller.py. Pixel-level checks stay manual (within +-2 per RGB
+channel in overlay screenshots; see the checklist).
 """
 
 import pytest

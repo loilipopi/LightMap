@@ -2,15 +2,12 @@
 
 Requirements covered: FFT-01 .. FFT-05.
 
-Assumptions (checklist section 0, confirm them with the team):
-  * Hann window form: PERIODIC, w[n] = 0.5 - 0.5*cos(2*pi*n/N).
-    If you use the symmetric form (np.hanning), set HANN_PERIODIC = False.
-    The exact-match tests then use the symmetric reference, and the
-    closed-form FFT-02 checks get a looser tolerance (they are only
-    approximately true for the symmetric window).
-  * The stub also has a hop_size, which the checklist did not account for.
-    Most tests use hop_size == window_size (no overlap); the overlap test
-    is separate.
+Confirmed specification:
+  * Window size N = 1024 and chunk duration t = N / fs (no overlap,
+    so default hop_size == window_size == 1024).
+  * Hann window form: periodic, w[n] = 0.5 * (1 - cos(2*pi*n / N)).
+  * Output bins: k = 0 .. floor(N / 2), frequency = k * fs / N Hz,
+    magnitude = sqrt(real^2 + imaginary^2) / N.
 """
 
 import numpy as np
@@ -18,18 +15,17 @@ import pytest
 
 from lightmap.audio_analyser import FrequencyAnalyser
 
-HANN_PERIODIC = True
+DEFAULT_WINDOW_SIZE = 1024
 FS = 48000
-ATOL_ANALYTIC = 1e-6 if HANN_PERIODIC else 1e-3
+ATOL_ANALYTIC = 1e-6
 ATOL_REFERENCE = 1e-6
 
 
 # ---------------------------------------------------------------- helpers
 
 def hann(n):
-    if HANN_PERIODIC:
-        return 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(n) / n)
-    return np.hanning(n)
+    """Periodic Hann window: w[n] = 0.5 * (1 - cos(2*pi*n / N))."""
+    return 0.5 * (1.0 - np.cos(2 * np.pi * np.arange(n) / n))
 
 
 def reference_spectrum(frame, fs):
@@ -51,7 +47,7 @@ def magnitudes(spectrum):
     return [m for _, m in spectrum]
 
 
-def analyser(n, hop=None):
+def analyser(n=DEFAULT_WINDOW_SIZE, hop=None):
     return FrequencyAnalyser(window_size=n, hop_size=n if hop is None else hop)
 
 
@@ -79,6 +75,18 @@ def random_signal(count, seed=0):
 
 
 # ------------------------------------------------- FFT-01: analysis windows
+
+def test_fft01_default_window_and_hop_size_are_1024():
+    an = FrequencyAnalyser()
+    signal = random_signal(2 * DEFAULT_WINDOW_SIZE, seed=10)
+    assert an.analyse(signal[:DEFAULT_WINDOW_SIZE - 1], FS) == []
+    first = an.analyse(signal[DEFAULT_WINDOW_SIZE - 1:DEFAULT_WINDOW_SIZE], FS)
+    assert len(first) == 1
+    assert_spectrum_matches(first[0], reference_spectrum(signal[:DEFAULT_WINDOW_SIZE], FS))
+    second = an.analyse(signal[DEFAULT_WINDOW_SIZE:], FS)
+    assert len(second) == 1
+    assert_spectrum_matches(second[0], reference_spectrum(signal[DEFAULT_WINDOW_SIZE:], FS))
+
 
 def test_fft01_no_result_until_a_window_is_complete():
     n = 8
@@ -166,11 +174,11 @@ def test_reset_clears_the_stored_sample_rate_and_keeps_the_window_size():
 # ----------------------------------------------- FFT-02: Hann window applied
 
 def test_fft02_hann_window_is_applied_all_ones_input():
-    """A constant input has a known windowed spectrum:
+    """A constant input has a known periodic-Hann windowed spectrum:
     bin 0 = 0.5, bin 1 = 0.25, everything else 0.
     With no window (rectangular) you would get 1.0 at bin 0 and 0 elsewhere,
     so this fails if the Hann window is missing."""
-    n = 1024
+    n = DEFAULT_WINDOW_SIZE
     mags = magnitudes(analyser(n).analyse([1.0] * n, FS)[0])
     assert mags[0] == pytest.approx(0.5, abs=ATOL_ANALYTIC)
     assert mags[1] == pytest.approx(0.25, abs=ATOL_ANALYTIC)
@@ -179,7 +187,7 @@ def test_fft02_hann_window_is_applied_all_ones_input():
 
 def test_fft02_hann_window_is_applied_bin_centred_sine():
     """A sine of amplitude A exactly on bin k gives A/4 at k and A/8 at k+-1."""
-    n, k, amp = 1024, 100, 0.8
+    n, k, amp = DEFAULT_WINDOW_SIZE, 100, 0.8
     signal = (amp * np.sin(2 * np.pi * k * np.arange(n) / n)).tolist()
     mags = magnitudes(analyser(n).analyse(signal, FS)[0])
     assert mags[k] == pytest.approx(amp / 4, abs=ATOL_ANALYTIC)
@@ -190,7 +198,7 @@ def test_fft02_hann_window_is_applied_bin_centred_sine():
 
 
 def test_fft02_a_partial_window_is_not_analysed():
-    n = 1024
+    n = DEFAULT_WINDOW_SIZE
     assert analyser(n).analyse([1.0] * (n - 1), FS) == []
 
 
@@ -218,13 +226,13 @@ def peak_frequency(spectrum, low=0.0, high=float("inf")):
 @pytest.mark.parametrize("fs", [44100, 48000])
 @pytest.mark.parametrize("freq", [440.0, 1000.0])
 def test_fft04_a_single_tone_peaks_in_the_nearest_bin(freq, fs):
-    n = 1024
+    n = DEFAULT_WINDOW_SIZE
     spectrum = analyser(n).analyse(tone(freq, n, fs), fs)[0]
     assert abs(peak_frequency(spectrum) - freq) <= fs / (2 * n) + 1e-9
 
 
 def test_fft04_two_tones_give_two_peaks_in_the_right_places():
-    n, fs = 1024, 48000
+    n, fs = DEFAULT_WINDOW_SIZE, 48000
     mix = [a + b for a, b in zip(tone(440.0, n, fs), tone(1000.0, n, fs))]
     spectrum = analyser(n).analyse(mix, fs)[0]
     half_bin = fs / (2 * n) + 1e-9
@@ -234,7 +242,7 @@ def test_fft04_two_tones_give_two_peaks_in_the_right_places():
 
 # ------------------------------------- FFT-05: magnitude = sqrt(re^2+im^2)/N
 
-@pytest.mark.parametrize("n", [7, 64, 256])
+@pytest.mark.parametrize("n", [7, 64, 256, 1024])
 def test_fft05_matches_a_numpy_reference_on_random_input(n):
     signal = random_signal(3 * n, seed=n)
     spectra = analyser(n).analyse(signal, FS)

@@ -24,12 +24,15 @@ class AudioCapture:
             Otherwise, begins capturing the default output device.
 
             During capture, on_samples receives chronological,
-            single-channel sample batches and their sample rate.
+            single-channel sample chunks of constant duration t = N / fs
+            (N = 1024 samples per chunk, one analysis window, no overlap)
+            and their sample rate fs.
             The sample rate remains constant within the session.
 
             If capture fails, capture is stopped and on_error
             receives an error message.
-            Original audio playback is not interrupted.
+            Original audio playback is not interrupted (shared mode,
+            not exclusive).
         """
         raise NotImplementedError
 

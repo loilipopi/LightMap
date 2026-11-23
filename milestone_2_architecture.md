@@ -45,7 +45,7 @@ The architecture follows Model–View–Controller, with separate services for a
 
 ### OverlayView: View
 
-**Responsibility:** Display the latest output colour over the game.
+**Responsibility:** Display the latest output colour over the game (matching the commanded colour within ±2 per RGB channel in overlay screenshots).
 
 **Location:** Client only.
 
@@ -55,39 +55,39 @@ The architecture follows Model–View–Controller, with separate services for a
 
 ### AudioCapture: Model
 
-**Responsibility:** Capture playback audio from the computer's default output device.
+**Responsibility:** Capture playback audio from the computer's default output device in chunks of duration `t = N / fs` (`N = 1024` samples, one analysis window, no overlap).
 
 **Location:** Client only.
 
 **Communication:**
 - Receives start and stop requests from AppController.
-- Supplies captured samples in chronological order and their sample rate to AppController.
+- Supplies captured samples in chronological order (chunks of `N = 1024` samples, duration `t = N / fs`) and their sample rate `fs` to AppController.
 - Reports capture failures to AppController.
 
 ### FrequencyAnalyser: Model
 
-**Responsibility:** Buffer audio samples into analysis windows and compute their frequency spectra using FFT.
+**Responsibility:** Buffer audio samples into `N = 1024`-sample analysis windows (non-overlapping, `hop_size = N`), apply the periodic Hann window `0.5 * (1 - cos(2πn / N))`, and compute their frequency spectra using FFT.
 
 **Location:** Client only.
 
 **Communication:**
 - Receives audio samples and their sample rate from AppController.
-- Receives analysis settings, including window size and hop size, from AppController.
-- Returns frequency–magnitude pairs for each completed analysis window to AppController.
+- Receives analysis settings, including window size (`N = 1024`) and hop size (`N = 1024`, no overlap), from AppController.
+- Returns frequency–magnitude pairs for bins `k = 0` through `floor(N / 2)` for each completed analysis window to AppController.
 - Receives reset requests from AppController to discard buffered samples between capture sessions.
 
 ### ColourMapper: Model
 
-**Responsibility:** Convert frequency–magnitude pairs into colours using the predefined colour map and combine them into one output colour.
+**Responsibility:** Convert frequency–magnitude pairs into colours using the predefined colour map (linear frequency axis: `0 Hz` = first pixel, `fs / 2` = last pixel) and combine them into one output colour via magnitude-weighted mean RGB (within ±1 per RGB channel).
 
 
 **Location:** Client only.
 
 **Communication:**
 - Receives frequency–magnitude pairs and colour-mapping settings from AppController.
-- Process image (one time) into a linear map for mapping frequency-magnitude pairs.
-- Process the average of the colours of the frequency-magnitude pairs.
-- Returns one RGB colour per analysis result to AppController.
+- Process image (one time) into a linear map for mapping frequency-magnitude pairs (`0 Hz` = first pixel, `fs / 2` = last pixel).
+- Computes the magnitude-weighted mean RGB of the colours mapped from all frequency–magnitude pairs.
+- Returns one RGB colour per analysis result to AppController (within ±1 per RGB channel).
 
 ### Code Stub Locations
 
