@@ -67,6 +67,14 @@ class AppController:
                 or sample_rate <= 0
             ):
                 raise ValueError("colour map sample_rate must be finite and positive")
+            max_magnitude = self._map_settings.get("max_magnitude")
+            if "max_magnitude" in self._map_settings and (
+                isinstance(max_magnitude, bool)
+                or not isinstance(max_magnitude, (int, float))
+                or not isfinite(max_magnitude)
+                or max_magnitude <= 0
+            ):
+                raise ValueError("colour map max_magnitude must be finite and positive")
             self._colour_map = self._load_colour_map(colour_map_path)
             if sample_rate is not None:
                 self._mapper_for_rate(sample_rate)

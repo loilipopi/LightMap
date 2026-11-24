@@ -377,3 +377,41 @@ def test_constructor_rejects_invalid_colour_map_sample_rate(parts, tmp_path):
             colour_map_path=tmp_path / "map.png",
             colour_map_settings={"sample_rate": float("inf")},
         )
+
+
+@pytest.mark.parametrize("bad_max", [0, -0.5, float("nan"), float("inf"), True])
+def test_constructor_rejects_invalid_colour_map_max_magnitude(parts, tmp_path, bad_max):
+    with pytest.raises(ValueError, match="max_magnitude"):
+        app_controller.AppController(
+            parts.model,
+            parts.capture,
+            parts.analyser,
+            colour_map_path=tmp_path / "map.png",
+            colour_map_settings={"max_magnitude": bad_max},
+        )
+
+
+def test_image_mapper_forwards_max_magnitude_setting(parts, tmp_path, monkeypatch):
+    path = tmp_path / "map.png"
+    with Image.new("RGB", (2, 2), (10, 20, 30)) as image:
+        image.save(path)
+
+    captured_settings = []
+
+    def configure_mapper(pixels, settings):
+        captured_settings.append(dict(settings))
+        return parts.mapper
+
+    monkeypatch.setattr(app_controller, "ColourMapper", configure_mapper)
+    controller = app_controller.AppController(
+        parts.model,
+        parts.capture,
+        FrequencyAnalyser(),
+        colour_map_path=path,
+        colour_map_settings={"max_magnitude": 0.5},
+    )
+    controller.start()
+    parts.capture.on_samples([0.0] * 1024, RATE)
+
+    assert captured_settings == [{"max_magnitude": 0.5, "sample_rate": RATE}]
+    assert parts.model.settings == {"max_magnitude": 0.5, "sample_rate": RATE}

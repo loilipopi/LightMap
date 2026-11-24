@@ -1,4 +1,6 @@
-# A colour map image as a rectangular grid of RGB pixels, indexed [row][column].
+# A colour map image as a rectangular grid of RGB pixels, indexed [row][column]
+# (row 0 is the top row, last row is the bottom row;
+# column 0 is the leftmost column, last column is the rightmost column).
 ColourMapImage = list[list[tuple[int, int, int]]]
 
 
@@ -9,15 +11,19 @@ class ColourMapper:
         """
         Preconditions:
             colour_map is a nonempty rectangular grid of
-            (red, green, blue) pixels, each channel an integer
-            from 0 to 255.
-            settings satisfies the colour-mapping design specification
-            (including sample rate fs defining the frequency axis
-            [0 Hz, fs / 2]).
+            (red, green, blue) pixels indexed [row][column], each
+            channel an integer from 0 to 255.
+            settings satisfies the colour-mapping design specification:
+            it includes a finite, positive sample rate `sample_rate`
+            (fs) defining the horizontal frequency axis [0 Hz, fs / 2],
+            and optionally a finite, positive `max_magnitude` (default
+            0.5) defining the vertical magnitude axis
+            [0, max_magnitude].
         Postconditions:
-            colour_map is processed once into a linear map used for
+            colour_map is processed once into a 2D lookup grid used for
             all later lookups; it is not needed after construction.
-            The mapper is configured using a copy of settings.
+            The mapper is configured using a copy of settings
+            (defaulting `max_magnitude` to 0.5 when omitted).
             The supplied colour_map and settings are unchanged.
         """
         raise NotImplementedError
@@ -33,27 +39,30 @@ class ColourMapper:
         Postconditions:
             Returns one (red, green, blue) colour, each an integer from
             0 to 255, for the whole analysis result: the
-            magnitude-weighted mean RGB of the colours that the linear
-            map gives for each frequency-magnitude pair in spectrum
-            (accurate within +/-1 per RGB channel).
+            magnitude-weighted mean RGB of the colours that the 2D
+            colour map gives for each frequency-magnitude pair in
+            spectrum (accurate within +/-1 per RGB channel).
+            Magnitude is used both for the vertical position on the 2D
+            map and as the weight in the average.
             If the sum of all magnitudes in spectrum is zero, returns
             the unweighted mean RGB of the mapped colours.
-            spectrum, the linear map, and the mapper's settings are
+            spectrum, the lookup grid, and the mapper's settings are
             unchanged.
         """
         raise NotImplementedError
 
-    def _build_linear_map(
+    def _build_lookup_grid(
         self, colour_map: ColourMapImage
-    ) -> list[tuple[int, int, int]]:
+    ) -> ColourMapImage:
         """
         Preconditions:
             colour_map satisfies the __init__ preconditions.
         Postconditions:
-            Returns the image's colours as a linear (flat) lookup
-            table suitable for mapping frequency-magnitude pairs,
-            with frequency mapped linearly across the colour map's
-            frequency axis (0 Hz = first pixel, fs / 2 = last pixel).
+            Returns an independent 2D [row][column] lookup grid of the
+            image's RGB pixels suitable for mapping frequency-magnitude
+            pairs (horizontal axis: frequency, 0 Hz = first column,
+            fs / 2 = last column; vertical axis: magnitude, 0 = bottom
+            row, max_magnitude = top row).
             Called once, from __init__.
             colour_map is unchanged.
         """
@@ -66,11 +75,19 @@ class ColourMapper:
         Preconditions:
             frequency and magnitude are finite and nonnegative.
         Postconditions:
-            Returns the (red, green, blue) colour the linear map gives
-            for this frequency-magnitude pair, each an integer from
-            0 to 255 (accurate within +/-1 per RGB channel).
-            Frequency maps linearly from 0 Hz (first pixel) to fs / 2
-            (last pixel); values beyond the map's range are clamped to
-            its edge.
+            Returns the (red, green, blue) colour the 2D lookup grid
+            gives for this frequency-magnitude pair, each an integer
+            from 0 to 255 (accurate within +/-1 per RGB channel):
+              - Horizontal axis (frequency): linear from 0 Hz (first /
+                leftmost column) to fs / 2 (last / rightmost column).
+              - Vertical axis (magnitude): linear from 0 (bottom row)
+                to max_magnitude (top row).
+              - Values outside [0 Hz, fs / 2] or [0, max_magnitude] are
+                clamped to the nearest edge of the image.
+              - Pixel centres are the sample points; a point falling
+                between pixel centres gets the per-channel bilinear
+                interpolation of the (up to four) surrounding pixels.
+                An image one pixel tall or wide is constant along that
+                axis.
         """
         raise NotImplementedError
