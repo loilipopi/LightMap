@@ -23,7 +23,7 @@
 LightMap is a real-time audio visualization system that converts PC audio into a single RGB colour using a two-dimensional colour map.
 
 1. **Capture** system audio and compute its frequency spectrum using a Fast Fourier Transform (FFT).
-2. **Map** frequency and normalized amplitude to RGB values on a 2D colour map.
+2. **Map** each frequency bin to an RGB value on a 2D colour map, with frequency on the horizontal axis and magnitude on the vertical axis.
 3. **Combine** the sampled colours into one RGB output, updated continuously.
 4. **Display** the output on a screen, through LEDs, or in other applications.
 
@@ -39,7 +39,7 @@ This becomes even more challenging when music is mixed with these audio cues. So
 
 ### Solution
 
-LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, the frequency and amplitude values are mapped onto a **2D colour map**, with each detected peak corresponding to a colour. The sampled colours are then combined into **one RGB colour** that can be displayed through a screen overlay or an external light.
+LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, each frequency bin is placed on a **2D colour map** (frequency on the horizontal axis, magnitude on the vertical axis), and the colour at that point is sampled. The sampled colours are then combined, weighted by magnitude, into **one RGB colour** that can be displayed through a screen overlay or an external light.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/58797190-01c4-4eaa-9415-030f20fd47b4" width="860" alt="LightMap frequency-and-volume colour mapping diagram" />

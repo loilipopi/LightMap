@@ -57,7 +57,7 @@ We will use three main methods:
 | Req | Method | What we check | Exact tests |
 | --- | --- | --- | --- |
 | CM-01 | A | Every bin, including the first and last, influences the output colour. | ColorMapper |
-| CM-02 | A | Linear mapping onto the colour map (`0 Hz` = first pixel, `fs / 2` = last pixel) matches hand-computed colours within ±1 per RGB channel. | ColorMapper |
+| CM-02 | A | 2D mapping onto the colour map (frequency horizontal: `0 Hz` = first column, `fs / 2` = last column; magnitude vertical: `0` = bottom row, `max_magnitude` = top row; clamped at the edges; bilinear between pixels) matches hand-computed colours within ±1 per RGB channel. | ColorMapper |
 | CM-03 | I and A | Enough templates are provided and each one loads and produces a valid colour. | ColorMapper |
 
 **Justification:** The mapper is a pure function from bins and a map to a colour, so automated tests with hand-computed answers fit well. We start with black and white because the correct answer is obvious by hand, then gradients, then custom maps. CM-03 is partly an inspection because "multiple templates are provided" is a statement about what ships, not about behaviour.

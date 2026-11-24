@@ -6,7 +6,10 @@ Legend: **(A)** automated test, **(M)** manual test with evidence posted in the 
 - [ ] Make sure everyone knows how to use github and setup an actual workflow 
 - [x] Window size N = 1024 and chunk time t = N / fs (one chunk = one analysis window, no overlap)
 - [x] Hann form: periodic, `0.5 * (1 - cos(2πn / N))`
-- [x] Frequency axis of the colour map: 0 Hz = first pixel, fs / 2 = last pixel
+- [x] Colour map is 2D: frequency on the horizontal axis, magnitude on the vertical axis
+- [x] Frequency axis of the colour map: 0 Hz = first column, fs / 2 = last column
+- [ ] Magnitude axis of the colour map: linear, 0 = bottom row, max_magnitude = top row (proposed default max_magnitude = 0.5)
+- [x] Colours between pixel centres are bilinearly interpolated
 - [x] D-02 averaging formula: magnitude-weighted mean RGB of the colours the bins map to
 - [ ] Minimum number of colour map templates (proposed 3)
 - [x] Colour tolerances: ±1 per RGB channel for ColorMapper, ±2 per RGB channel for overlay screenshots
@@ -90,7 +93,9 @@ All **(A)**. Start with 1 to 2 clean tones, then mixes, then game audio.
 
 All **(A)** except CM-03's inspection. Start with black and white, then gradients, then a custom map.
 
-- [ ] CM-02: 2-pixel black and white map. 0 Hz gives the first pixel, fs / 2 gives the last, and fs / 4 gives the midpoint
+- [ ] CM-02: 2-pixel black and white map (one row). 0 Hz gives the first column, fs / 2 gives the last, and fs / 4 gives the midpoint
+- [ ] CM-02: 2-pixel map (one column, bottom black, top white). Magnitude 0 gives black, max_magnitude gives white, max_magnitude / 2 gives the midpoint, and magnitudes above max_magnitude give white
+- [ ] CM-02: 2×2 map. A pair at fs / 4 and max_magnitude / 2 gives the mean of the four corners (bilinear)
 - [ ] CM-02: gradient map and custom map match hand-computed colours within ±1 per channel
 - [ ] CM-01: with a map where every position has a different colour, setting one bin at a time (every k from 0 to floor(N / 2), including both ends) changes the output from the all-zero output
 - [ ] D-02: hand-computed spectra give the expected magnitude-weighted mean RGB colour within ±1 per channel

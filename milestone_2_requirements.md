@@ -22,7 +22,7 @@
 ## Color Mapping
 
 - 01: The application shall include all frequency bins produced by the frequency analysis stage in colour conversion.
-- 02: The application shall map included frequencies to a colour map contained in an image file using linear mapping on the frequency axis where `0 Hz` maps to the first pixel and `fs / 2` maps to the last pixel (accurate within `±1` per RGB channel for `ColorMapper`).
+- 02: The application shall map each included frequency–magnitude pair to a colour on a 2D colour map contained in an image file: frequency maps linearly to the horizontal axis (`0 Hz` = first column, `fs / 2` = last column) and magnitude maps linearly to the vertical axis (`0` = bottom row, `max_magnitude` = top row). Values outside these ranges are clamped to the edge, and colours between pixel centres are bilinearly interpolated (accurate within `±1` per RGB channel for `ColorMapper`).
 - 03: The application will have multiple colour map templates provided.
 
 ## Display
