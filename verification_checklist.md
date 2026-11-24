@@ -7,11 +7,12 @@ Legend: **(A)** automated test, **(M)** manual test with evidence posted in the 
 - [x] Window size N = 1024 and chunk time t = N / fs (one chunk = one analysis window, no overlap)
 - [x] Hann form: periodic, `0.5 * (1 - cos(2πn / N))`
 - [x] Colour map is 2D: frequency on the horizontal axis, magnitude on the vertical axis
-- [x] Frequency axis of the colour map: 0 Hz = first column, fs / 2 = last column
-- [ ] Magnitude axis of the colour map: linear, 0 = bottom row, max_magnitude = top row (proposed default max_magnitude = 0.5)
+- [x] Frequency axis of the colour map: logarithmic, min_frequency (default 20 Hz) = first column, fs / 2 = last column
+- [x] Magnitude axis of the colour map: decibels relative to max_magnitude (default 0.5), floor_db (default -60 dB) = bottom row, 0 dB = top row
+- [x] Noise floor: bins below floor_db are excluded; silence gives black
 - [x] Colours between pixel centres are bilinearly interpolated
-- [x] D-02 averaging formula: magnitude-weighted mean RGB of the colours the bins map to
-- [ ] Minimum number of colour map templates (proposed 3)
+- [x] D-02 averaging formula: power-weighted (magnitude²) mean RGB of the colours the bins at or above the floor map to
+- [x] Minimum number of colour map templates: 3
 - [x] Colour tolerances: ±1 per RGB channel for ColorMapper, ±2 per RGB channel for overlay screenshots
 - [x] External audio recorder chosen for CA-01 and CA-04: Audacity (Windows WASAPI loopback)
 - [ ] CI (GitHub Actions) runs the automated tests without a real audio device or screen
@@ -93,13 +94,16 @@ All **(A)**. Start with 1 to 2 clean tones, then mixes, then game audio.
 
 All **(A)** except CM-03's inspection. Start with black and white, then gradients, then a custom map.
 
-- [ ] CM-02: 2-pixel black and white map (one row). 0 Hz gives the first column, fs / 2 gives the last, and fs / 4 gives the midpoint
-- [ ] CM-02: 2-pixel map (one column, bottom black, top white). Magnitude 0 gives black, max_magnitude gives white, max_magnitude / 2 gives the midpoint, and magnitudes above max_magnitude give white
-- [ ] CM-02: 2×2 map. A pair at fs / 4 and max_magnitude / 2 gives the mean of the four corners (bilinear)
+- [ ] CM-02: 2-pixel black and white map (one row). min_frequency gives the first column, fs / 2 gives the last, each doubling of frequency moves the same distance, and frequencies outside the axis (including 0 Hz) clamp to the edges
+- [ ] CM-02: 2-pixel map (one column, bottom black, top white). floor_db gives black, 0 dB (max_magnitude) gives white, floor_db / 2 gives the midpoint, and louder magnitudes give white
+- [ ] CM-02: defaults are min_frequency = 20 Hz, max_magnitude = 0.5 and floor_db = -60 dB
+- [ ] CM-02: 2×2 map. A pair at the middle of both axes gives the mean of the four corners (bilinear)
 - [ ] CM-02: gradient map and custom map match hand-computed colours within ±1 per channel
-- [ ] CM-01: with a map where every position has a different colour, setting one bin at a time (every k from 0 to floor(N / 2), including both ends) changes the output from the all-zero output
-- [ ] D-02: hand-computed spectra give the expected magnitude-weighted mean RGB colour within ±1 per channel
-- [ ] D-02: a uniform-colour map gives that colour whatever the spectrum
+- [ ] CM-01: with a map where every position has a different colour, replacing one bin at a time (every k from 0 to floor(N / 2), including both ends) changes the output
+- [ ] CM-01: bins below the floor are excluded, however many there are, and a bin exactly at the floor is included
+- [ ] D-02: hand-computed spectra give the expected power-weighted (magnitude²) mean RGB colour within ±1 per channel
+- [ ] D-02: a uniform-colour map gives that colour for any spectrum with a bin at or above the floor
+- [ ] D-02: silence (every bin below the floor) gives black, even on a map with no black
 - [ ] **(I)** CM-03: templates folder contains at least the agreed minimum number of maps
 - [ ] CM-03: every template loads and produces a valid colour (each channel 0 to 255)
 - [ ] Tests pass in CI, backup owner has reviewed, Issue moved to Done

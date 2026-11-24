@@ -78,15 +78,15 @@ The architecture follows Model–View–Controller, with separate services for a
 
 ### ColourMapper: Model
 
-**Responsibility:** Convert frequency–magnitude pairs into colours using the predefined 2D colour map (horizontal axis: frequency, linear, `0 Hz` = first column, `fs / 2` = last column; vertical axis: magnitude, linear, `0` = bottom row, `max_magnitude` = top row; bilinear interpolation between pixels) and combine them into one output colour via magnitude-weighted mean RGB (within ±1 per RGB channel).
+**Responsibility:** Convert frequency–magnitude pairs into colours using the predefined 2D colour map (horizontal axis: frequency, logarithmic, `min_frequency` = first column, `fs / 2` = last column; vertical axis: magnitude in dB, `floor_db` = bottom row, `0 dB` = top row; bilinear interpolation between pixels) and combine the bins at or above the noise floor into one output colour via power-weighted (magnitude²) mean RGB, or black if none (within ±1 per RGB channel).
 
 
 **Location:** Client only.
 
 **Communication:**
-- Receives frequency–magnitude pairs and colour-mapping settings (sample rate `fs`, `max_magnitude`) from AppController.
+- Receives frequency–magnitude pairs and colour-mapping settings (sample rate `fs`, `min_frequency`, `max_magnitude`, `floor_db`) from AppController.
 - Process image (one time) into a 2D lookup grid for mapping frequency–magnitude pairs (frequency on the horizontal axis, magnitude on the vertical axis).
-- Computes the magnitude-weighted mean RGB of the colours mapped from all frequency–magnitude pairs.
+- Computes the power-weighted (magnitude²) mean RGB of the colours mapped from the frequency–magnitude pairs at or above the noise floor, or black if there are none.
 - Returns one RGB colour per analysis result to AppController (within ±1 per RGB channel).
 
 ### Code Stub Locations

@@ -39,7 +39,7 @@ This becomes even more challenging when music is mixed with these audio cues. So
 
 ### Solution
 
-LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, each frequency bin is placed on a **2D colour map** (frequency on the horizontal axis, magnitude on the vertical axis), and the colour at that point is sampled. The sampled colours are then combined, weighted by magnitude, into **one RGB colour** that can be displayed through a screen overlay or an external light.
+LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, each frequency bin is placed on a **2D colour map** (frequency on a logarithmic horizontal axis, loudness in decibels on the vertical axis), and the colour at that point is sampled. Bins below a noise floor are ignored, and the sampled colours are combined, with louder bins counting for more, into **one RGB colour** that can be displayed through a screen overlay or an external light.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/58797190-01c4-4eaa-9415-030f20fd47b4" width="860" alt="LightMap frequency-and-volume colour mapping diagram" />

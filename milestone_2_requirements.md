@@ -21,14 +21,14 @@
 
 ## Color Mapping
 
-- 01: The application shall include all frequency bins produced by the frequency analysis stage in colour conversion.
-- 02: The application shall map each included frequency–magnitude pair to a colour on a 2D colour map contained in an image file: frequency maps linearly to the horizontal axis (`0 Hz` = first column, `fs / 2` = last column) and magnitude maps linearly to the vertical axis (`0` = bottom row, `max_magnitude` = top row). Values outside these ranges are clamped to the edge, and colours between pixel centres are bilinearly interpolated (accurate within `±1` per RGB channel for `ColorMapper`).
+- 01: The application shall include every frequency bin produced by the frequency analysis stage whose magnitude is at or above the noise floor (`floor_db`, default `-60 dB` relative to `max_magnitude`) in colour conversion, and exclude bins below it.
+- 02: The application shall map each included frequency–magnitude pair to a colour on a 2D colour map contained in an image file: frequency maps logarithmically to the horizontal axis (`min_frequency`, default `20 Hz`, = first column, `fs / 2` = last column) and magnitude in decibels maps linearly to the vertical axis (`floor_db` = bottom row, `0 dB` = `max_magnitude` = top row). Values outside these ranges are clamped to the edge, and colours between pixel centres are bilinearly interpolated (accurate within `±1` per RGB channel for `ColorMapper`).
 - 03: The application will have multiple colour map templates provided.
 
 ## Display
 
 - 01: While enabled, the overlay/light must display the latest colour produced by colour mapping (accurate within `±2` per RGB channel in overlay screenshots).
-- 02: The colour displayed is the magnitude-weighted mean RGB of the colours that the frequency bins map to on the colour map (accurate within `±1` per RGB channel for `ColorMapper`).
+- 02: The colour displayed is the power-weighted (magnitude²) mean RGB of the colours that the included frequency bins map to on the colour map, or black when no bin is included (accurate within `±1` per RGB channel for `ColorMapper`).
 - 03: When the user enables the overlay, the application shall show it until disabled.
 - 04: When the user disables the overlay, the application shall hide it until enabled again.
 - 05: If the application is closed, the display must not be open.

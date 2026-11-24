@@ -59,22 +59,23 @@ class AppController:
             self._map_settings = dict(
                 model.settings if colour_map_settings is None else colour_map_settings
             )
+            # Reject bad settings now rather than inside a capture callback.
+            # min_frequency < fs / 2 is checked once the sample rate is known.
+            for key, sign in (
+                ("sample_rate", "positive"),
+                ("max_magnitude", "positive"),
+                ("min_frequency", "positive"),
+                ("floor_db", "negative"),
+            ):
+                value = self._map_settings.get(key)
+                if key in self._map_settings and (
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not isfinite(value)
+                    or (value <= 0 if sign == "positive" else value >= 0)
+                ):
+                    raise ValueError(f"colour map {key} must be finite and {sign}")
             sample_rate = self._map_settings.get("sample_rate")
-            if "sample_rate" in self._map_settings and (
-                isinstance(sample_rate, bool)
-                or not isinstance(sample_rate, (int, float))
-                or not isfinite(sample_rate)
-                or sample_rate <= 0
-            ):
-                raise ValueError("colour map sample_rate must be finite and positive")
-            max_magnitude = self._map_settings.get("max_magnitude")
-            if "max_magnitude" in self._map_settings and (
-                isinstance(max_magnitude, bool)
-                or not isinstance(max_magnitude, (int, float))
-                or not isfinite(max_magnitude)
-                or max_magnitude <= 0
-            ):
-                raise ValueError("colour map max_magnitude must be finite and positive")
             self._colour_map = self._load_colour_map(colour_map_path)
             if sample_rate is not None:
                 self._mapper_for_rate(sample_rate)

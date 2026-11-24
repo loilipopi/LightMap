@@ -391,6 +391,29 @@ def test_constructor_rejects_invalid_colour_map_max_magnitude(parts, tmp_path, b
         )
 
 
+@pytest.mark.parametrize(
+    "key, bad_value",
+    [
+        ("min_frequency", 0),
+        ("min_frequency", -20.0),
+        ("min_frequency", float("nan")),
+        ("floor_db", 0),
+        ("floor_db", 6.0),
+        ("floor_db", float("-inf")),
+        ("floor_db", True),
+    ],
+)
+def test_constructor_rejects_invalid_colour_map_axis_settings(parts, tmp_path, key, bad_value):
+    with pytest.raises(ValueError, match=key):
+        app_controller.AppController(
+            parts.model,
+            parts.capture,
+            parts.analyser,
+            colour_map_path=tmp_path / "map.png",
+            colour_map_settings={key: bad_value},
+        )
+
+
 def test_image_mapper_forwards_max_magnitude_setting(parts, tmp_path, monkeypatch):
     path = tmp_path / "map.png"
     with Image.new("RGB", (2, 2), (10, 20, 30)) as image:
@@ -403,6 +426,8 @@ def test_image_mapper_forwards_max_magnitude_setting(parts, tmp_path, monkeypatc
         return parts.mapper
 
     monkeypatch.setattr(app_controller, "ColourMapper", configure_mapper)
+    # The real analyser gives 513 bins, which FakeMapper would turn into (513, 0, 0).
+    monkeypatch.setattr(parts.mapper, "map_colour", lambda spectrum: (0, 0, 0))
     controller = app_controller.AppController(
         parts.model,
         parts.capture,
