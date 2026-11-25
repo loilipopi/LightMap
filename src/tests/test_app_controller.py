@@ -13,11 +13,55 @@ from PIL import Image
 
 from lightmap import app_controller
 from lightmap.audio_analyser import FrequencyAnalyser
+from lightmap.colour_mapper import ColourMapper
+from lightmap.overlay_layout import PREVIEW_COLOUR
+from lightmap.preferences import AudioTuning, SmoothingTimes
 
 SPECTRUM_1 = [(100.0, 1.0)]                    # -> colour (1, 0, 0)
 SPECTRUM_2 = [(100.0, 1.0), (200.0, 2.0)]      # -> colour (2, 0, 0)
 SAMPLES = [0.0] * 8
 RATE = 48000
+
+
+def test_meter_reads_raw_peak_and_idle_uses_quiet_colour(parts, monkeypatch):
+    mapper = ColourMapper([[(7, 14, 21)]], {"sample_rate": RATE})
+    controller = app_controller.AppController(parts.model, parts.capture, parts.analyser, mapper)
+    controller.set_views(parts.controls, parts.overlay)
+    quiet = (32, 64, 96)
+    controller.set_audio_tuning(AudioTuning(-40, quiet))
+    assert parts.overlay.colour == quiet
+    now = 10.0
+    monkeypatch.setattr(app_controller, "monotonic", lambda: now)
+    controller.start()
+    parts.analyser.script = [[[(100.0, 0.002)]], [[(100.0, 0.05)]]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.controls.input_levels[-1] == pytest.approx(-47.96, abs=.01)
+    assert parts.overlay.colour == quiet
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.controls.input_levels[-1] == pytest.approx(-20)
+    assert parts.overlay.colour == (7, 14, 21)
+    now += 0.1
+    controller.refresh_idle()
+    assert parts.overlay.colour == (7, 14, 21)
+    now += 0.2
+    controller.refresh_idle()
+    assert parts.controls.input_levels[-1] is None
+    assert parts.overlay.colour == quiet
+    assert parts.model.capture_status == "active"
+
+
+def test_preview_restores_live_colour_and_remembered_visibility(parts):
+    parts.controller.set_overlay_preview(True)
+    assert parts.overlay.visible and parts.overlay.colour == PREVIEW_COLOUR
+    assert not parts.model.overlay_enabled
+    parts.controller.start()
+    parts.analyser.script = [[SPECTRUM_2]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == PREVIEW_COLOUR and parts.model.output_colour == (2, 0, 0)
+    parts.controller.set_overlay_preview(False)
+    assert not parts.overlay.visible
+    parts.controller.set_overlay_enabled(True)
+    assert parts.overlay.visible and parts.overlay.colour == (2, 0, 0)
 
 
 def test_smoothing_blends_successive_updates_and_can_be_disabled(parts, monkeypatch):
@@ -38,6 +82,54 @@ def test_smoothing_blends_successive_updates_and_can_be_disabled(parts, monkeypa
     assert parts.overlay.colour == (255, 60, 120)
     parts.capture.on_samples(SAMPLES, RATE)
     assert parts.model.output_colour == parts.overlay.colour == (255, 60, 120)
+
+
+@pytest.mark.parametrize("fade_in,fade_out", [(0, 200), (180, 0), (0, 0), (100, 300)])
+def test_independent_fades_follow_audio_in_each_direction(parts, monkeypatch, fade_in, fade_out):
+    bright, quiet = (255, 80, 60), (0, 0, 0)
+    monkeypatch.setattr(
+        parts.mapper, "map_colour", lambda spectrum: bright if spectrum[0][1] > 0 else quiet
+    )
+    parts.controller.set_smoothing_times(SmoothingTimes(fade_in, fade_out))
+    parts.controller.set_smoothing_enabled(True)
+    parts.controller.start()
+    parts.analyser.script = [[[(100.0, 0.3)]], [[(100.0, 0.0)]], [[(100.0, 0.0)]]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    at_peak = parts.overlay.colour
+    assert (0 < at_peak[0] < 255) if fade_in else (at_peak == bright)
+    parts.capture.on_samples(SAMPLES, RATE)
+    on_drop = parts.overlay.colour
+    parts.capture.on_samples(SAMPLES, RATE)
+    if fade_out:
+        assert 0 < parts.overlay.colour[0] < on_drop[0] < at_peak[0]
+    else:
+        assert parts.overlay.colour == on_drop == quiet
+
+
+def test_fade_out_continues_without_audio_frames(parts, monkeypatch):
+    now = 10.0
+    monkeypatch.setattr(app_controller, "monotonic", lambda: now)
+    bright = (255, 90, 20)
+    quiet = (18, 25, 32)
+    mapper = ColourMapper([[bright]], {"sample_rate": RATE})
+    controller = app_controller.AppController(parts.model, parts.capture, parts.analyser, mapper)
+    controller.set_views(parts.controls, parts.overlay)
+    controller.set_audio_tuning(AudioTuning(quiet_colour=quiet))
+    controller.set_smoothing_times(SmoothingTimes(0, 200))
+    controller.set_smoothing_enabled(True)
+    controller.start()
+    parts.analyser.script = [[[(100.0, 0.3)]]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == bright
+    now += 0.3
+    controller.refresh_idle()
+    assert parts.controls.input_levels[-1] is None
+    now += 0.2
+    controller.refresh_idle()
+    assert quiet[0] < parts.overlay.colour[0] < bright[0]
+    now += 2
+    controller.refresh_idle()
+    assert parts.overlay.colour == quiet
 
 
 def test_changing_palette_remaps_latest_spectrum_and_rejects_bad_image(parts, tmp_path):

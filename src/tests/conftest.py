@@ -63,6 +63,7 @@ class FakeControls:
     def __init__(self):
         self.statuses = []
         self.errors = []
+        self.input_levels = []
         self.closed = False
 
     def set_status(self, status):
@@ -72,6 +73,9 @@ class FakeControls:
     def show_error(self, message):
         assert not self.closed
         self.errors.append(message)
+
+    def set_input_level(self, level):
+        self.input_levels.append(level)
 
     def close(self):
         assert not self.closed

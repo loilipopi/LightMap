@@ -10,6 +10,7 @@ import pytest
 from lightmap import control_view
 from lightmap.control_view import ControlView
 from lightmap.overlay_layout import OverlayLayout
+from lightmap.preferences import AppPreferences, AudioTuning, SmoothingTimes
 
 
 # --------------------------------------------------------------- ControlView
@@ -140,6 +141,106 @@ def test_settings_controls_change_palette_smoothing_and_layout(tmp_path, monkeyp
         view.close()
 
 
+def test_remembered_controls_drag_and_apply_audio_tuning(monkeypatch):
+    placed, tuning, preview = [], [], []
+    prefs = AppPreferences(
+        smoothing=False, overlay_enabled=True, layout=OverlayLayout(edge="bottom", size=30),
+        audio=AudioTuning(-54, (13, 15, 17), 120, 80, 60),
+    )
+    monkeypatch.setattr(
+        control_view.colorchooser, "askcolor", lambda **kwargs: ((45, 90, 125), "#2d5a7d")
+    )
+    try:
+        view = ControlView(
+            lambda: None, lambda: None, lambda enabled: None, lambda: None,
+            on_smoothing_toggle=lambda enabled: None, on_layout_change=placed.append,
+            on_preview_toggle=preview.append, on_audio_change=tuning.append, preferences=prefs,
+        )
+    except TclError as exc:
+        if "display" in str(exc):
+            pytest.skip(f"no display available for ControlView: {exc}")
+        raise
+    try:
+        view.show()
+        view._root.update()
+        assert view._overlay_enabled.get() and not view._smoothing.get()
+        assert view._edge.get() == "Bottom" and view._thickness.get() == "30"
+        assert view._floor.get() == -54 and view._low_band.get() == "120"
+        view._preview_button.invoke()
+        assert preview == [True]
+
+        canvas = view._placement
+        left, top, scale = canvas._viewport()
+        screen_width, screen_height = canvas._screen_width, canvas._screen_height
+        canvas.event_generate("<ButtonPress-1>", x=round(left + screen_width * scale / 2),
+                              y=round(top + (screen_height - 10) * scale))
+        x, y = round(left + (screen_width - 6) * scale), round(top + screen_height * scale / 2)
+        canvas.event_generate("<B1-Motion>", x=x, y=y)
+        canvas.event_generate("<ButtonRelease-1>", x=x, y=y)
+        assert placed == [OverlayLayout(edge="right", size=30)]
+        assert view._edge.get() == "Right"
+
+        view._quiet_button.invoke()
+        assert tuning == [AudioTuning(-54, (45, 90, 125), 120, 80, 60)]
+        view._floor.set(-72)
+        view._mid_band.set("250")
+        view._audio_button.invoke()
+        assert tuning[-1] == AudioTuning(-72, (45, 90, 125), 120, 250, 60)
+        view.set_input_level(-35.6)
+
+        def meter_updated():
+            view._root.update()
+            return view._meter_text.get() == "-36 dB"
+
+        assert _wait_until(meter_updated)
+    finally:
+        view.close()
+
+
+def test_gui_applies_custom_timings_and_polygon_dimensions():
+    layouts, timings = [], []
+    prefs = AppPreferences(
+        layout=OverlayLayout("rectangle", width=150, height=32, rotation=15),
+        smoothing_times=SmoothingTimes(5, 120),
+    )
+    try:
+        view = ControlView(
+            lambda: None, lambda: None, lambda enabled: None, lambda: None,
+            preferences=prefs, on_layout_change=layouts.append,
+            on_smoothing_times_change=timings.append,
+        )
+    except TclError as exc:
+        if "display" in str(exc):
+            pytest.skip(f"no display available for ControlView: {exc}")
+        raise
+    try:
+        view.show()
+        view._root.update()
+        assert view._shape.get() == "Rectangle"
+        assert view._shape_width.get() == "150" and view._rotation.get() == "15"
+        assert view._fade_in.get() == "5" and view._fade_out.get() == "120"
+
+        view._fade_in.set("0")
+        view._fade_out.set("340")
+        view._smoothing_times_button.invoke()
+        assert timings == [SmoothingTimes(0, 340)]
+        view._fade_in.set("-1")
+        view._smoothing_times_button.invoke()
+        assert len(timings) == 1 and view._settings_error.get()
+
+        view._shape.set("Triangle")
+        view._shape_picker.event_generate("<<ComboboxSelected>>")
+        view._shape_width.set("125")
+        view._shape_height.set("95")
+        view._rotation.set("-42")
+        view._layout_button.invoke()
+        assert layouts == [OverlayLayout("triangle", width=125, height=95, rotation=-42)]
+        canvas = view._placement
+        assert canvas.type(canvas.find_all()[-1]) == "polygon"
+    finally:
+        view.close()
+
+
 # --------------------------------------------------------------- OverlayView
 # These drive a real Tk window, so they need a display (CI: xvfb-run pytest).
 # Without one they skip instead of failing.
@@ -260,6 +361,30 @@ def test_circle_position_uses_available_screen_space():
         OverlayLayout("circle", x_percent=120)
 
 
+def test_dragging_a_circle_preserves_grab_offset_and_clamps_to_display():
+    layout = OverlayLayout("circle", size=50, x_percent=20, y_percent=20)
+    assert layout.placed_at(500, 400, 320, 250, (20, 40)).bounds(500, 400) == (100, 100, 300, 210)
+    assert layout.placed_at(500, 400, 1000, -80).bounds(500, 400) == (100, 100, 400, 0)
+
+
+def test_rotated_rectangle_dimensions_and_dragging_at_screen_edges():
+    layout = OverlayLayout("rectangle", width=200, height=60, rotation=90)
+    assert layout.bounds(800, 600)[:2] == (60, 200)
+    moved = layout.placed_at(800, 600, 900, 800)
+    assert moved.bounds(800, 600) == (60, 200, 740, 400)
+    assert moved.rotation == 90 and moved.width == 200 and moved.height == 60
+
+
+@pytest.mark.parametrize(("shape", "corners"), [("triangle", 3), ("diamond", 4), ("hexagon", 6)])
+def test_oversized_rotated_shapes_fit_and_share_window_local_vertices(shape, corners):
+    layout = OverlayLayout(shape, width=1200, height=1000, rotation=37)
+    geometry = layout.geometry(180, 100)
+    width, height, x, y = geometry.bounds
+    assert x >= 0 and y >= 0 and x + width <= 180 and y + height <= 100
+    assert len(geometry.polygon) == corners
+    assert all(0 <= px <= width + 1e-9 and 0 <= py <= height + 1e-9 for px, py in geometry.polygon)
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="native overlay regions require Windows")
 def test_switching_circle_to_bar_updates_the_rendered_region(overlay):
     colour = (233, 90, 179)
@@ -270,6 +395,21 @@ def test_switching_circle_to_bar_updates_the_rendered_region(overlay):
     assert _screen_pixel(2, 2) != colour
     overlay.set_layout(OverlayLayout(size=70))
     assert _wait_until(lambda: _screen_pixel(2, 2) == colour)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="native overlay regions require Windows")
+@pytest.mark.parametrize("shape", ["rectangle", "triangle", "diamond", "hexagon"])
+def test_desktop_renders_rotated_shape_with_transparent_corners(overlay, shape):
+    layout = OverlayLayout(shape, width=145, height=78, rotation=37, x_percent=0, y_percent=0)
+    geometry = layout.geometry(800, 600)
+    middle = tuple(round(sum(axis) / len(axis)) for axis in zip(*geometry.polygon))
+    colour = (231, 42, 171)
+    overlay.set_layout(layout)
+    overlay.set_colour(colour)
+    overlay.show()
+    assert _wait_until(lambda: _screen_pixel(*middle) == colour)
+    corners = [(2, 2), (geometry.bounds[0] - 2, 2)]
+    assert any(_screen_pixel(*point) != colour for point in corners)
 
 
 def test_calls_from_other_threads_are_safe(overlay):

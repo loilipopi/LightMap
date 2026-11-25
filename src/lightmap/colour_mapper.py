@@ -1,5 +1,7 @@
 from math import floor, isfinite, log, log10
 
+from .preferences import AudioTuning
+
 # A colour map image as a rectangular grid of RGB pixels, indexed [row][column]
 # (row 0 is the top row, last row is the bottom row;
 # column 0 is the leftmost column, last column is the rightmost column).
@@ -80,7 +82,7 @@ class ColourMapper:
         self._floor_magnitude = self._max_magnitude * 10 ** (self._floor_db / 20) * (1 - 1e-12)
 
     def map_colour(
-        self, spectrum: list[tuple[float, float]]
+        self, spectrum: list[tuple[float, float]], *, tuning: AudioTuning | None = None
     ) -> tuple[int, int, int]:
         """
         Preconditions:
@@ -94,23 +96,32 @@ class ColourMapper:
             colour map gives for each frequency-magnitude pair in
             spectrum at or above the floor (accurate within +/-1 per
             RGB channel). Pairs below the floor are excluded.
-            If every pair is below the floor, returns black (0, 0, 0).
+            With tuning, use its floor and frequency-band power weights.
+            With no contributing bins, return the quiet colour (black by default).
             spectrum, the lookup grid, and the mapper's settings are
             unchanged.
         """
         total_weight = 0.0
         sums = [0.0, 0.0, 0.0]
+        floor_db = self._floor_db if tuning is None else tuning.floor_db
+        floor_magnitude = self._floor_magnitude
+        if floor_db != self._floor_db:
+            floor_magnitude = self._max_magnitude * 10 ** (floor_db / 20) * (1 - 1e-12)
         for frequency, magnitude in spectrum:
-            if magnitude < self._floor_magnitude:
+            if magnitude < floor_magnitude:
                 continue
             weight = magnitude * magnitude
-            colour = self._lookup(frequency, magnitude)
+            if tuning is not None:
+                weight *= tuning.weight(frequency)
+            if weight == 0:
+                continue
+            colour = self._lookup(frequency, magnitude, floor_db)
             total_weight += weight
             for channel in range(3):
                 sums[channel] += weight * colour[channel]
 
         if total_weight == 0:
-            return (0, 0, 0)
+            return (0, 0, 0) if tuning is None else tuning.quiet_colour
         red, green, blue = (_to_channel(total / total_weight) for total in sums)
         return (red, green, blue)
 
@@ -159,7 +170,9 @@ class ColourMapper:
         red, green, blue = (_to_channel(value) for value in self._lookup(frequency, magnitude))
         return (red, green, blue)
 
-    def _lookup(self, frequency: float, magnitude: float) -> tuple[float, float, float]:
+    def _lookup(
+        self, frequency: float, magnitude: float, floor_db: float | None = None
+    ) -> tuple[float, float, float]:
         """Return the unrounded bilinear colour at this pair's position."""
         if frequency <= self._min_frequency:
             u = 0.0
@@ -169,7 +182,7 @@ class ColourMapper:
             v = 0.0
         else:
             decibels = 20 * log10(magnitude / self._max_magnitude)
-            v = min(max(1 - decibels / self._floor_db, 0.0), 1.0)
+            v = min(max(1 - decibels / (self._floor_db if floor_db is None else floor_db), 0.0), 1.0)
 
         x = u * self._last_column
         y = (1 - v) * self._last_row

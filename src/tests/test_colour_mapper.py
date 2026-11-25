@@ -33,6 +33,7 @@ from pathlib import Path
 import pytest
 
 from lightmap.colour_mapper import ColourMapper
+from lightmap.preferences import AudioTuning
 
 FS = 48000.0
 NYQUIST = FS / 2.0
@@ -53,6 +54,30 @@ SETTINGS: dict[str, float] = {
     "max_magnitude": M_TOP,
     "floor_db": -20.0,
 }
+
+
+def test_noise_floor_changes_sensitivity_and_returns_custom_quiet_colour():
+    mapper = ColourMapper([[(9, 15, 80)]], {"sample_rate": FS})
+    quiet = (30, 60, 90)
+    spectrum = [(440.0, 0.002)]  # Approximately -48 dB for the default reference.
+    assert mapper.map_colour(spectrum, tuning=AudioTuning(-60, quiet)) == (9, 15, 80)
+    assert mapper.map_colour(spectrum, tuning=AudioTuning(-40, quiet)) == quiet
+    assert mapper.map_colour([(440.0, 0.0)], tuning=AudioTuning(-100, quiet)) == quiet
+
+
+def test_frequency_emphasis_weights_power_and_can_mute_entire_bands():
+    mapper = ColourMapper([[(255, 0, 0), (0, 0, 255)]], {
+        "sample_rate": FS, "min_frequency": 100.0,
+    })
+    spectrum = [(100.0, 0.05), (NYQUIST, 0.05)]
+    quiet = (8, 9, 10)
+    assert mapper.map_colour(spectrum, tuning=AudioTuning(high=200)) == (85, 0, 170)
+    assert mapper.map_colour(spectrum, tuning=AudioTuning(high=0)) == (255, 0, 0)
+    assert mapper.map_colour(
+        spectrum, tuning=AudioTuning(quiet_colour=quiet, low=0, high=0)
+    ) == quiet
+    tuning = AudioTuning(low=25, mid=50, high=200)
+    assert [tuning.weight(frequency) for frequency in (249, 250, 3999, 4000)] == [.25, .5, .5, 2]
 
 
 # ---------------------------------------------------------------- helpers

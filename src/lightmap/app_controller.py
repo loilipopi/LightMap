@@ -1,17 +1,19 @@
-from math import expm1, isfinite
+from math import expm1, isfinite, log10
 from numbers import Integral
 from os import PathLike
 from threading import Lock, RLock
+from time import monotonic
 
 from .app_model import AppState, CaptureStatus, RGB
-from .audio_capture import AudioCapture
+from .audio_capture import CHUNK_SIZE, AudioCapture
 from .audio_analyser import FrequencyAnalyser
-from .colour_mapper import ColourMapImage, ColourMapper
+from .colour_mapper import DEFAULT_MAX_MAGNITUDE, ColourMapImage, ColourMapper
 from .control_view import ControlView
-from .overlay_layout import OverlayLayout
+from .overlay_layout import PREVIEW_COLOUR, OverlayLayout
 from .overlay_view import OverlayView
+from .preferences import AudioTuning, SmoothingTimes
 
-SMOOTHING_SECONDS = 0.035
+IDLE_SECONDS = 0.25
 
 
 class AppController:
@@ -48,9 +50,16 @@ class AppController:
         self._mapper_sample_rate: float | None = None
         self._latest_spectrum: list[tuple[float, float]] | None = None
         self._latest_colour = model.output_colour
+        self._tuning: AudioTuning | None = None
+        self._last_frame_time: float | None = None
         self._smoothing_enabled = False
+        self._smoothing_times = SmoothingTimes()
         self._smoothed: tuple[float, float, float] | None = None
+        self._latest_signal = 0.0
+        self._fading_out = False
+        self._quiet_fade_at: float | None = None
         self._overlay_layout: OverlayLayout | None = None
+        self._preview_enabled = False
         self._controls: ControlView | None = None
         self._overlay: OverlayView | None = None
         self._closed = False
@@ -119,13 +128,9 @@ class AppController:
             self._controls = controls
             self._overlay = overlay
             controls.set_status(self._model.capture_status)
-            overlay.set_colour(self._model.output_colour)
             if self._overlay_layout is not None:
                 overlay.set_layout(self._overlay_layout)
-            if self._model.overlay_enabled:
-                overlay.show()
-            else:
-                overlay.hide()
+            self._sync_overlay()
 
     def start(self) -> None:
         """Reset the analyser and open one capture session if none is open."""
@@ -138,8 +143,12 @@ class AppController:
 
             with self._state:
                 self._analyser.reset()
+                self._last_frame_time = None
                 self._latest_spectrum = None
-                self._smoothed = None
+                self._quiet_fade_at = None
+                self._latest_signal = 0.0
+                self._fading_out = False
+                self._smoothed = self._model.output_colour if self._smoothing_enabled else None
                 session = self._session = object()
                 self._starting = True
                 self._capture_needs_stop = True
@@ -176,6 +185,7 @@ class AppController:
                     return
                 self._session = None
                 self._analyser.reset()
+                self._reset_input()
             if self._capture_needs_stop and not self._stop_capture():
                 return
             with self._state:
@@ -197,11 +207,29 @@ class AppController:
             if not spectra:
                 return
             mapper = self._mapper_for_rate(sample_rate)
+            self._quiet_fade_at = None
             for spectrum in spectra:
-                colour = self._latest_colour = mapper.map_colour(spectrum)
+                colour = self._map_spectrum(mapper, spectrum)
+                peak = max((magnitude for _, magnitude in spectrum), default=0.0)
+                signal = 0.0 if self._tuning is not None and colour == self._tuning.quiet_colour else peak
+                if signal != self._latest_signal:
+                    self._fading_out = signal < self._latest_signal
+                elif colour != self._latest_colour:
+                    self._fading_out = False
+                self._latest_signal, self._latest_colour = signal, colour
                 if self._smoothing_enabled:
-                    colour = self._smooth(colour, sample_rate)
+                    milliseconds = (
+                        self._smoothing_times.fade_out_ms if self._fading_out
+                        else self._smoothing_times.fade_in_ms
+                    )
+                    colour = self._smooth(colour, milliseconds, CHUNK_SIZE / sample_rate)
             self._latest_spectrum = spectra[-1]
+            if self._tuning is not None:
+                self._last_frame_time = monotonic()
+                if self._controls is not None:
+                    reference = self._map_settings.get("max_magnitude", DEFAULT_MAX_MAGNITUDE)
+                    level = 20 * (log10(peak) - log10(reference)) if peak > 0 else None
+                    self._controls.set_input_level(level)
             self._publish_colour(colour)
 
     def set_colour_map(self, path: str | PathLike[str]) -> None:
@@ -216,13 +244,67 @@ class AppController:
             else:
                 mapper = ColourMapper(pixels, {**self._map_settings, "sample_rate": sample_rate})
             spectrum = self._latest_spectrum
-            colour = mapper.map_colour(spectrum) if mapper is not None and spectrum else (0, 0, 0)
+            colour = self._map_spectrum(mapper, spectrum)
             self._colour_map = pixels
             self._mapper = mapper
             self._mapper_sample_rate = sample_rate
-            self._latest_colour = colour
-            self._smoothed = None
-            self._publish_colour(colour)
+            self._show_new_target(colour)
+
+    def set_audio_tuning(self, tuning: AudioTuning) -> None:
+        """Apply sensitivity, quiet colour and band weights to the current input."""
+        with self._state:
+            if not self._closed:
+                self._tuning = tuning
+                self._show_new_target(self._map_spectrum(self._mapper, self._latest_spectrum))
+
+    def refresh_idle(self) -> None:
+        """Clear stale input and advance any quiet fade between audio frames."""
+        with self._state:
+            if self._last_frame_time is None and self._quiet_fade_at is None:
+                return
+            now = monotonic()
+            if self._last_frame_time is not None and now - self._last_frame_time >= IDLE_SECONDS:
+                self._reset_input(now)
+            if self._quiet_fade_at is not None:
+                colour = self._smooth(
+                    self._latest_colour, self._smoothing_times.fade_out_ms, now - self._quiet_fade_at
+                )
+                self._quiet_fade_at = now
+                if colour == self._latest_colour:
+                    self._show_new_target(colour)
+                else:
+                    self._publish_colour(colour)
+
+    def _map_spectrum(
+        self, mapper: ColourMapper | None, spectrum: list[tuple[float, float]] | None
+    ) -> RGB:
+        if mapper is None or not spectrum:
+            return (0, 0, 0) if self._tuning is None else self._tuning.quiet_colour
+        if self._tuning is None:
+            return mapper.map_colour(spectrum)
+        return mapper.map_colour(spectrum, tuning=self._tuning)
+
+    def _show_new_target(self, colour: RGB) -> None:
+        self._latest_colour = colour
+        self._quiet_fade_at = None
+        self._smoothed = colour if self._smoothing_enabled else None
+        self._publish_colour(colour)
+
+    def _reset_input(self, now: float | None = None) -> None:
+        if self._tuning is not None:
+            self._last_frame_time = None
+            self._latest_spectrum = None
+            self._latest_signal = 0.0
+            self._fading_out = True
+            if self._controls is not None:
+                self._controls.set_input_level(None)
+            quiet = self._tuning.quiet_colour
+            if (self._smoothing_enabled and self._smoothing_times.fade_out_ms
+                    and self._model.output_colour != quiet):
+                self._latest_colour = quiet
+                self._quiet_fade_at = monotonic() if now is None else now
+            else:
+                self._show_new_target(quiet)
 
     def set_smoothing_enabled(self, enabled: bool) -> None:
         """Toggle the short visual transition without changing FFT or mapping."""
@@ -232,7 +314,16 @@ class AppController:
             self._smoothing_enabled = enabled
             self._smoothed = self._model.output_colour if enabled else None
             if not enabled:
-                self._publish_colour(self._latest_colour)
+                self._show_new_target(self._latest_colour)
+
+    def set_smoothing_times(self, times: SmoothingTimes) -> None:
+        """Set separate time constants for louder and quieter audio."""
+        with self._state:
+            if self._closed:
+                return
+            self._smoothing_times = times
+            if self._quiet_fade_at is not None and not times.fade_out_ms:
+                self._show_new_target(self._latest_colour)
 
     def set_overlay_layout(self, layout: OverlayLayout) -> None:
         """Apply geometry and opacity without changing the overlay visibility."""
@@ -243,12 +334,11 @@ class AppController:
                 self._overlay.set_layout(layout)
             self._overlay_layout = layout
 
-    def _smooth(self, colour: RGB, sample_rate: int) -> RGB:
-        if self._smoothed is None:
+    def _smooth(self, colour: RGB, milliseconds: int, seconds: float) -> RGB:
+        if not milliseconds or self._smoothed is None:
             self._smoothed = colour
             return colour
-        # Each spectrum represents one non-overlapping analysis window.
-        weight = -expm1(-1024 / (sample_rate * SMOOTHING_SECONDS))
+        weight = -expm1(-seconds * 1000 / milliseconds)
         red, green, blue = (
             old + (new - old) * weight for old, new in zip(self._smoothed, colour)
         )
@@ -257,7 +347,7 @@ class AppController:
 
     def _publish_colour(self, colour: RGB) -> None:
         self._model.output_colour = colour
-        if self._overlay is not None:
+        if self._overlay is not None and not self._preview_enabled:
             self._overlay.set_colour(colour)
 
     def on_error(self, message: str) -> None:
@@ -271,6 +361,7 @@ class AppController:
             if not self._starting:
                 self._capture_needs_stop = False
             self._analyser.reset()
+            self._reset_input()
             self._report_error(message)
 
     def set_overlay_enabled(self, enabled: bool) -> None:
@@ -279,12 +370,25 @@ class AppController:
             if self._closed:
                 return
             self._model.overlay_enabled = enabled
-            if self._overlay is not None:
-                if enabled:
-                    self._overlay.set_colour(self._model.output_colour)
-                    self._overlay.show()
-                else:
-                    self._overlay.hide()
+            self._sync_overlay()
+
+    def set_overlay_preview(self, enabled: bool) -> None:
+        """Temporarily show a sample colour independent of capture and visibility."""
+        with self._state:
+            if self._closed:
+                return
+            self._preview_enabled = enabled
+            self._sync_overlay()
+
+    def _sync_overlay(self) -> None:
+        if self._overlay is None:
+            return
+        colour = PREVIEW_COLOUR if self._preview_enabled else self._model.output_colour
+        self._overlay.set_colour(colour)
+        if self._preview_enabled or self._model.overlay_enabled:
+            self._overlay.show()
+        else:
+            self._overlay.hide()
 
     def close(self) -> None:
         """Close both views and release capture, retrying a failed release on reentry."""

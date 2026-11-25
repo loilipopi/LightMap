@@ -9,13 +9,12 @@ makes every method safe to call from any thread, never blocks the audio
 thread on drawing, and gives last-colour-wins for free.
 """
 
-import gc
 import sys
 import threading
 import tkinter as tk
 from numbers import Integral
 
-from .overlay_layout import OverlayLayout
+from .overlay_layout import OverlayGeometry, OverlayLayout
 
 RGB = tuple[int, int, int]
 
@@ -115,8 +114,8 @@ class OverlayView:
 
     def set_layout(self, layout: OverlayLayout) -> None:
         """Set shape, placement, size and opacity without showing the window."""
-        if layout.shape == "circle" and sys.platform != "win32":
-            raise ValueError("The circular overlay requires Windows.")
+        if layout.shape != "bar" and sys.platform != "win32":
+            raise ValueError("Shaped overlays require Windows.")
         with self._lock:
             if not self._closed:
                 self._layout = layout
@@ -173,7 +172,7 @@ class OverlayView:
                         self._colour, self._visible, self._closed, self._layout
                     )
                 if closed:
-                    root.destroy()
+                    root.quit()
                     return
                 if colour != state["colour"]:
                     root.configure(bg="#%02x%02x%02x" % colour)
@@ -207,26 +206,31 @@ class OverlayView:
                 self._startup_error = exc
                 self._ready.set()
         finally:
-            # Drop every reference to Tk objects on this thread: if the main
-            # thread garbage-collected them instead, Tcl would abort the process.
+            # Destroy the interpreter's window here and break the poll callback's
+            # self-reference. Collecting globally here can finalize the control
+            # window's Tk objects on the wrong thread.
+            try:
+                root.destroy()
+            except tk.TclError:
+                pass
             root = apply = None
-            gc.collect()
             with self._lock:
                 self._closed = True
             self._ready.set()
 
     @staticmethod
     def _apply_layout(root: tk.Tk, layout: OverlayLayout) -> None:
-        width, height, x, y = layout.bounds(root.winfo_screenwidth(), root.winfo_screenheight())
+        geometry = layout.geometry(root.winfo_screenwidth(), root.winfo_screenheight())
+        width, height, x, y = geometry.bounds
         root.geometry(f"{width}x{height}+{x}+{y}")
         if sys.platform != "win32":
             root.attributes("-alpha", layout.opacity / 100)
             return
         root.update_idletasks()
-        OverlayView._configure_windows(root.winfo_id(), width, height, layout)
+        OverlayView._configure_windows(root.winfo_id(), geometry, layout)
 
     @staticmethod
-    def _configure_windows(window: int, width: int, height: int, layout: OverlayLayout) -> None:
+    def _configure_windows(window: int, geometry: OverlayGeometry, layout: OverlayLayout) -> None:
         """Set click-through, opacity and the native drawing region."""
         import ctypes
         from ctypes import wintypes
@@ -242,6 +246,10 @@ class OverlayView:
         user32.SetWindowRgn.argtypes = (wintypes.HWND, wintypes.HRGN, wintypes.BOOL)
         gdi32.CreateEllipticRgn.argtypes = (ctypes.c_int,) * 4
         gdi32.CreateEllipticRgn.restype = wintypes.HRGN
+        gdi32.CreatePolygonRgn.argtypes = (
+            ctypes.POINTER(wintypes.POINT), ctypes.c_int, ctypes.c_int
+        )
+        gdi32.CreatePolygonRgn.restype = wintypes.HRGN
         gdi32.DeleteObject.argtypes = (wintypes.HGDIOBJ,)
 
         hwnd = user32.GetParent(window) or window
@@ -254,7 +262,17 @@ class OverlayView:
         )
         if not user32.SetLayeredWindowAttributes(hwnd, 0, round(layout.opacity * 255 / 100), LWA_ALPHA):
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-        region = gdi32.CreateEllipticRgn(0, 0, width, height) if layout.shape == "circle" else None
+        width, height, _, _ = geometry.bounds
+        region = None
+        if layout.shape == "circle":
+            region = gdi32.CreateEllipticRgn(0, 0, width, height)
+        elif geometry.polygon and width > 1 and height > 1:
+            vertices = tuple(dict.fromkeys((round(x), round(y)) for x, y in geometry.polygon))
+            if len(vertices) >= 3:
+                points = (wintypes.POINT * len(vertices))(
+                    *(wintypes.POINT(x, y) for x, y in vertices)
+                )
+                region = gdi32.CreatePolygonRgn(points, len(points), 2)  # WINDING fill rule
         if not user32.SetWindowRgn(hwnd, region, True) and region:
             # Windows owns the region only after a successful call.
             gdi32.DeleteObject(region)
