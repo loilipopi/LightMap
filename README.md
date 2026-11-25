@@ -28,7 +28,7 @@ LightMap is a real-time audio visualization system that converts PC audio into a
 3. **Combine** the sampled colours into one RGB output, updated continuously.
 4. **Display** the output on a screen, through LEDs, or in other applications.
 
-## Run LightMap
+## Start LightMap
 
 ### Run LightMap With cmd File
 
@@ -52,6 +52,8 @@ Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To 
 ```powershell
 ..\.venv\Scripts\python.exe -m lightmap --map ember
 ```
+
+### Settings
 
 1. Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the app also closes the overlay.
 2. Choose **Spectrum**, **Ember**, or **Ocean** under **Colour map**. **Import image…** opens a local image as a custom map. Frequency increases from left to right, and loudness increases from bottom to top.
