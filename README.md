@@ -64,7 +64,11 @@ cd .\src
 
 Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
 
-Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom.
+Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom. For example:
+
+```powershell
+..\.venv\Scripts\python.exe -m lightmap --map ember
+```
 
 For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
 
