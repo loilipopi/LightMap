@@ -68,15 +68,6 @@ Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To 
 
 For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
 
-### Run the tests
-
-From `src`, install the test dependencies and run the suite:
-
-```powershell
-..\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
-..\.venv\Scripts\python.exe -m pytest
-```
-
 ## Other Applications
 
 LightMap can visualize game audio to provide additional feedback for players who are deaf or hard of hearing. **The initial RGB output represents the overall audio spectrum; recognizing specific sounds would require further processing.**
