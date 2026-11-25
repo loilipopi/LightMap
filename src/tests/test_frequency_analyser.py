@@ -340,13 +340,39 @@ def test_fft05_magnitude_formula_in_isolation():
     assert FrequencyAnalyser._compute_magnitude(0.0, 0.0, 10) == 0.0
 
 
-@pytest.mark.parametrize("n", [7, 64, 256, 1024])
+@pytest.mark.parametrize("n", [7, 64, 256, 1024, 4096])
 def test_fft05_matches_a_numpy_reference_on_random_input(n):
     signal = random_signal(3 * n, seed=n)
     spectra = analyser(n).analyse(signal, FS)
     assert len(spectra) == 3
     for i, spectrum in enumerate(spectra):
         assert_spectrum_matches(spectrum, reference_spectrum(signal[i * n:(i + 1) * n], FS))
+
+
+def test_high_resolution_overlapping_fft_matches_reference():
+    n, hop = 4096, 512
+    an = FrequencyAnalyser(window_size=n, hop_size=hop)
+    assert an.window_size == n and an.hop_size == hop
+    signal = random_signal(n + 2 * hop, seed=99)
+    spectra = feed_in_pieces(an, signal, sizes=[hop])
+    assert len(spectra) == 3
+    for i, spectrum in enumerate(spectra):
+        assert_spectrum_matches(spectrum, reference_spectrum(signal[i * hop:i * hop + n], FS))
+
+
+def test_low_latency_window_matches_dc_gain_and_reacts_faster_to_onsets():
+    n, hop = 2048, 256
+    fast = FrequencyAnalyser(window_size=n, hop_size=hop, window="low_latency")
+    sym = FrequencyAnalyser(window_size=n, hop_size=hop, window="hann")
+    assert fast.analyse([1.0] * n, FS)[0][0][1] == pytest.approx(0.5, abs=ATOL_ANALYTIC)
+    fast.reset()
+    # Sudden 440 Hz onset after silence: 2 hops later, low_latency responds much more strongly.
+    signal = [0.0] * n + tone(440.0, 2 * hop, FS)
+    fast_peak = peak_bin(fast.analyse(signal, FS)[-1])[1]
+    sym_peak = peak_bin(sym.analyse(signal, FS)[-1])[1]
+    assert fast_peak > sym_peak * 2.0
+    with pytest.raises(ValueError):
+        FrequencyAnalyser(window_size=n, hop_size=hop, window="unknown")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("n", [7, 64])

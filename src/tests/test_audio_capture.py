@@ -234,3 +234,18 @@ def test_downmix_means_corresponding_channels_and_normalizes():
     stereo = pack("<6h", -32768, 0, 0, 16384, 1000, -1000)
     assert _downmix_pcm16(stereo, 2) == [-0.5, 0.25, 0.0]
     assert _downmix_pcm16(pack("<2h", 16384, -32768), 1) == [0.5, -1.0]
+
+
+def test_custom_chunk_size_delivers_smaller_batches_and_validates():
+    backend = FakeBackend()
+    capture = AudioCapture(backend=backend, chunk_size=512)
+    sink = Sink()
+    capture.start(on_samples=sink.on_samples, on_error=sink.on_error)
+    backend.deliver(RAMP[:1200])
+    assert len(sink.batches) == 2
+    assert [len(samples) for samples, _ in sink.batches] == [512, 512]
+    assert sink.flat == RAMP[:1024]
+    capture.stop()
+    for bad in (0, -512, True):
+        with pytest.raises(ValueError):
+            AudioCapture(backend=backend, chunk_size=bad)

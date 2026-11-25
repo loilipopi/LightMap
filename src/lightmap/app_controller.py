@@ -55,8 +55,6 @@ class AppController:
         self._smoothing_enabled = False
         self._smoothing_times = SmoothingTimes()
         self._smoothed: tuple[float, float, float] | None = None
-        self._latest_signal = 0.0
-        self._fading_out = False
         self._quiet_fade_at: float | None = None
         self._overlay_layout: OverlayLayout | None = None
         self._preview_enabled = False
@@ -146,9 +144,11 @@ class AppController:
                 self._last_frame_time = None
                 self._latest_spectrum = None
                 self._quiet_fade_at = None
-                self._latest_signal = 0.0
-                self._fading_out = False
-                self._smoothed = self._model.output_colour if self._smoothing_enabled else None
+                self._smoothed = (
+                    tuple(float(c) for c in self._model.output_colour)
+                    if self._smoothing_enabled
+                    else None
+                )
                 session = self._session = object()
                 self._starting = True
                 self._capture_needs_stop = True
@@ -207,26 +207,18 @@ class AppController:
             if not spectra:
                 return
             mapper = self._mapper_for_rate(sample_rate)
+            hop_seconds = getattr(self._analyser, "hop_size", CHUNK_SIZE) / sample_rate
             self._quiet_fade_at = None
             for spectrum in spectra:
                 colour = self._map_spectrum(mapper, spectrum)
-                peak = max((magnitude for _, magnitude in spectrum), default=0.0)
-                signal = 0.0 if self._tuning is not None and colour == self._tuning.quiet_colour else peak
-                if signal != self._latest_signal:
-                    self._fading_out = signal < self._latest_signal
-                elif colour != self._latest_colour:
-                    self._fading_out = False
-                self._latest_signal, self._latest_colour = signal, colour
+                self._latest_colour = colour
                 if self._smoothing_enabled:
-                    milliseconds = (
-                        self._smoothing_times.fade_out_ms if self._fading_out
-                        else self._smoothing_times.fade_in_ms
-                    )
-                    colour = self._smooth(colour, milliseconds, CHUNK_SIZE / sample_rate)
+                    colour = self._smooth(colour, hop_seconds)
             self._latest_spectrum = spectra[-1]
             if self._tuning is not None:
                 self._last_frame_time = monotonic()
                 if self._controls is not None:
+                    peak = max((magnitude for _, magnitude in spectra[-1]), default=0.0)
                     reference = self._map_settings.get("max_magnitude", DEFAULT_MAX_MAGNITUDE)
                     level = 20 * (log10(peak) - log10(reference)) if peak > 0 else None
                     self._controls.set_input_level(level)
@@ -266,12 +258,10 @@ class AppController:
             if self._last_frame_time is not None and now - self._last_frame_time >= IDLE_SECONDS:
                 self._reset_input(now)
             if self._quiet_fade_at is not None:
-                colour = self._smooth(
-                    self._latest_colour, self._smoothing_times.fade_out_ms, now - self._quiet_fade_at
-                )
+                colour = self._smooth(self._latest_colour, now - self._quiet_fade_at)
                 self._quiet_fade_at = now
                 if colour == self._latest_colour:
-                    self._show_new_target(colour)
+                    self._show_new_target(self._latest_colour)
                 else:
                     self._publish_colour(colour)
 
@@ -279,23 +269,24 @@ class AppController:
         self, mapper: ColourMapper | None, spectrum: list[tuple[float, float]] | None
     ) -> RGB:
         if mapper is None or not spectrum:
-            return (0, 0, 0) if self._tuning is None else self._tuning.quiet_colour
+            return self._quiet_colour()
         if self._tuning is None:
             return mapper.map_colour(spectrum)
         return mapper.map_colour(spectrum, tuning=self._tuning)
 
+    def _quiet_colour(self) -> RGB:
+        return (0, 0, 0) if self._tuning is None else self._tuning.quiet_colour
+
     def _show_new_target(self, colour: RGB) -> None:
         self._latest_colour = colour
         self._quiet_fade_at = None
-        self._smoothed = colour if self._smoothing_enabled else None
+        self._smoothed = tuple(float(c) for c in colour) if self._smoothing_enabled else None
         self._publish_colour(colour)
 
     def _reset_input(self, now: float | None = None) -> None:
         if self._tuning is not None:
             self._last_frame_time = None
             self._latest_spectrum = None
-            self._latest_signal = 0.0
-            self._fading_out = True
             if self._controls is not None:
                 self._controls.set_input_level(None)
             quiet = self._tuning.quiet_colour
@@ -312,17 +303,19 @@ class AppController:
             if self._closed or enabled == self._smoothing_enabled:
                 return
             self._smoothing_enabled = enabled
-            self._smoothed = self._model.output_colour if enabled else None
+            self._smoothed = (
+                tuple(float(c) for c in self._model.output_colour) if enabled else None
+            )
             if not enabled:
                 self._show_new_target(self._latest_colour)
 
     def set_smoothing_times(self, times: SmoothingTimes) -> None:
-        """Set separate time constants for louder and quieter audio."""
+        """Set separate time constants for fading colours in and out."""
         with self._state:
             if self._closed:
                 return
             self._smoothing_times = times
-            if self._quiet_fade_at is not None and not times.fade_out_ms:
+            if not times.fade_out_ms and self._quiet_fade_at is not None:
                 self._show_new_target(self._latest_colour)
 
     def set_overlay_layout(self, layout: OverlayLayout) -> None:
@@ -334,14 +327,29 @@ class AppController:
                 self._overlay.set_layout(layout)
             self._overlay_layout = layout
 
-    def _smooth(self, colour: RGB, milliseconds: int, seconds: float) -> RGB:
-        if not milliseconds or self._smoothed is None:
-            self._smoothed = colour
+    def _smooth(self, colour: RGB, seconds: float) -> RGB:
+        """Crossfade each RGB channel independently using fade_in_ms and fade_out_ms."""
+        if self._smoothed is None:
+            self._smoothed = tuple(float(c) for c in colour)
             return colour
-        weight = -expm1(-seconds * 1000 / milliseconds)
-        red, green, blue = (
-            old + (new - old) * weight for old, new in zip(self._smoothed, colour)
-        )
+        fade_in_ms = self._smoothing_times.fade_in_ms
+        fade_out_ms = self._smoothing_times.fade_out_ms
+        quiet = self._quiet_colour()
+        channels: list[float] = []
+        for old, new, base in zip(self._smoothed, colour, quiet):
+            if new == old:
+                channels.append(old)
+                continue
+            fading_in = abs(new - base) > abs(old - base)
+            milliseconds = fade_in_ms if fading_in else fade_out_ms
+            if not milliseconds:
+                channels.append(float(new))
+            elif seconds > 0.0:
+                weight = -expm1(-seconds * 1000.0 / milliseconds)
+                channels.append(old + (new - old) * weight)
+            else:
+                channels.append(old)
+        red, green, blue = channels
         self._smoothed = (red, green, blue)
         return round(red), round(green), round(blue)
 

@@ -132,6 +132,74 @@ def test_fade_out_continues_without_audio_frames(parts, monkeypatch):
     assert parts.overlay.colour == quiet
 
 
+@pytest.mark.parametrize("fade_in,fade_out", [(0, 200), (200, 0), (100, 300)])
+def test_colour_change_fades_out_old_colour_and_fades_in_new_colour_independently(
+    parts, monkeypatch, fade_in, fade_out
+):
+    red, blue = (255, 0, 0), (0, 0, 255)
+    monkeypatch.setattr(
+        parts.mapper, "map_colour", lambda spectrum: red if spectrum[0][0] == 100.0 else blue
+    )
+    parts.controller.set_smoothing_times(SmoothingTimes(0, 0))
+    parts.controller.set_smoothing_enabled(True)
+    parts.controller.start()
+    # Start on pure red, then switch to blue with slight peak jitter.
+    parts.analyser.script = [
+        [[(100.0, 0.3)]],
+        [[(200.0, 0.3)]],
+        [[(200.0, 0.25)]],
+        *([[[(200.0, 0.28)]]] * 120),
+    ]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == red
+    parts.controller.set_smoothing_times(SmoothingTimes(fade_in, fade_out))
+    parts.capture.on_samples(SAMPLES, RATE)
+    first = parts.overlay.colour
+    parts.capture.on_samples(SAMPLES, RATE)
+    second = parts.overlay.colour
+    if fade_out:
+        assert 0 < second[0] < first[0] < 255
+    else:
+        assert first[0] == second[0] == 0
+    if fade_in:
+        assert 0 < first[2] < second[2] < 255
+    else:
+        assert first[2] == second[2] == 255
+    if fade_in and fade_out and fade_in < fade_out:
+        assert first[2] > 255 - first[0]
+    for _ in range(120):
+        parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == blue
+
+
+def test_idle_fade_out_blends_into_returning_audio(parts, monkeypatch):
+    now = 10.0
+    monkeypatch.setattr(app_controller, "monotonic", lambda: now)
+    red, blue, quiet = (255, 0, 0), (0, 0, 255), (18, 25, 32)
+    monkeypatch.setattr(
+        parts.mapper,
+        "map_colour",
+        lambda spectrum, tuning=None: red if spectrum[0][0] == 100.0 else blue,
+    )
+    parts.controller.set_audio_tuning(AudioTuning(quiet_colour=quiet))
+    parts.controller.set_smoothing_times(SmoothingTimes(0, 200))
+    parts.controller.set_smoothing_enabled(True)
+    parts.controller.start()
+    parts.analyser.script = [[[(100.0, 0.3)]], [[(200.0, 0.3)]]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == red
+    parts.controller.set_smoothing_times(SmoothingTimes(100, 200))
+    now += 0.3
+    parts.controller.refresh_idle()
+    now += 0.2
+    parts.controller.refresh_idle()
+    mid_fade = parts.overlay.colour
+    assert quiet[0] < mid_fade[0] < red[0]
+    parts.capture.on_samples(SAMPLES, RATE)
+    blended = parts.overlay.colour
+    assert 0 < blended[0] < mid_fade[0] and mid_fade[2] < blended[2] < blue[2]
+
+
 def test_changing_palette_remaps_latest_spectrum_and_rejects_bad_image(parts, tmp_path):
     parts.controller.start()
     parts.analyser.script = [[SPECTRUM_1], [SPECTRUM_2]]

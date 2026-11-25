@@ -18,7 +18,7 @@ from .overlay_layout import OverlayGeometry, OverlayLayout
 
 RGB = tuple[int, int, int]
 
-POLL_MS = 15           # how often the UI thread applies the desired state
+POLL_MS = 4            # how often the UI thread applies the desired state
 RAISE_MS = 500         # while visible, re-assert "always on top" this often
 START_TIMEOUT_S = 5.0
 CLOSE_TIMEOUT_S = 2.0
@@ -156,7 +156,10 @@ class OverlayView:
             return
 
         apply = None
+        hi_res_timer = False
         try:
+            if sys.platform == "win32":
+                hi_res_timer = self._set_windows_timer_resolution(True)
             root.withdraw()
             root.overrideredirect(True)          # no title bar or border
             root.attributes("-topmost", True)
@@ -206,6 +209,8 @@ class OverlayView:
                 self._startup_error = exc
                 self._ready.set()
         finally:
+            if hi_res_timer:
+                self._set_windows_timer_resolution(False)
             # Destroy the interpreter's window here and break the poll callback's
             # self-reference. Collecting globally here can finalize the control
             # window's Tk objects on the wrong thread.
@@ -217,6 +222,18 @@ class OverlayView:
             with self._lock:
                 self._closed = True
             self._ready.set()
+
+    @staticmethod
+    def _set_windows_timer_resolution(enable: bool) -> bool:
+        """Request 1 ms Windows timer resolution so 4 ms polling isn't quantized to 15.6 ms."""
+        try:
+            import ctypes
+
+            winmm = ctypes.windll.winmm
+            fn = winmm.timeBeginPeriod if enable else winmm.timeEndPeriod
+            return fn(1) == 0
+        except Exception:
+            return False
 
     @staticmethod
     def _apply_layout(root: tk.Tk, layout: OverlayLayout) -> None:

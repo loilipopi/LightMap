@@ -1,8 +1,9 @@
 from array import array
+from queue import Empty, SimpleQueue
 from threading import Event, Thread, current_thread
 from typing import Callable
 
-POLL_SECONDS = 0.01
+STATUS_POLL_SECONDS = 0.05
 SAMPLE_SCALE = 32768.0
 
 
@@ -24,6 +25,7 @@ class WasapiLoopback:
     def __init__(self, block_size: int) -> None:
         self._block_size = block_size
         self._stop = Event()
+        self._chunks: SimpleQueue[bytes | None] = SimpleQueue()
         self._worker: Thread | None = None
 
     def open(
@@ -47,6 +49,7 @@ class WasapiLoopback:
     def close(self) -> None:
         """Signal stop and wait until the audio worker has freed the device."""
         self._stop.set()
+        self._chunks.put(None)
         worker = self._worker
         if worker is not None and worker is not current_thread():
             worker.join()
@@ -65,6 +68,14 @@ class WasapiLoopback:
                 device = audio.get_default_wasapi_loopback()
                 channels = int(device["maxInputChannels"])
                 sample_rate = int(device["defaultSampleRate"])
+
+                def on_audio(in_data: bytes, frame_count: int, time_info, status):
+                    if self._stop.is_set():
+                        return (None, pyaudio.paComplete)
+                    if in_data:
+                        self._chunks.put(in_data)
+                    return (None, pyaudio.paContinue)
+
                 with audio.open(
                     format=pyaudio.paInt16,
                     channels=channels,
@@ -72,20 +83,19 @@ class WasapiLoopback:
                     input=True,
                     input_device_index=device["index"],
                     frames_per_buffer=self._block_size,
+                    stream_callback=on_audio,
                 ) as stream:
                     ready.set()
                     while not self._stop.is_set():
-                        if not stream.is_active():
-                            raise RuntimeError("The playback device stopped responding")
-                        available = stream.get_read_available()
-                        if available < 0:
-                            raise RuntimeError("The playback device is no longer available")
-                        if available:
-                            data = stream.read(min(available, self._block_size))
-                            on_chunk(_downmix_pcm16(data, channels), sample_rate)
-                        else:
-                            # Waiting on the stop event also lets a silent device close promptly.
-                            self._stop.wait(POLL_SECONDS)
+                        try:
+                            data = self._chunks.get(timeout=STATUS_POLL_SECONDS)
+                        except Empty:
+                            if not stream.is_active():
+                                raise RuntimeError("The playback device stopped responding")
+                            continue
+                        if data is None:
+                            break
+                        on_chunk(_downmix_pcm16(data, channels), sample_rate)
         except Exception as exc:
             if not ready.is_set():
                 startup_errors.append(exc)

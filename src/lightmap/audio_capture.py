@@ -31,11 +31,16 @@ class _Session:
 
 
 class AudioCapture:
-    """Capture playback and deliver consecutive mono windows of 1024 samples."""
+    """Capture playback and deliver consecutive mono windows of chunk_size samples."""
 
-    def __init__(self, backend: CaptureBackend | None = None) -> None:
+    def __init__(
+        self, backend: CaptureBackend | None = None, *, chunk_size: int = CHUNK_SIZE
+    ) -> None:
         """Use the default Windows playback device unless a source is supplied."""
+        if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer")
         self._backend = backend
+        self._chunk_size = chunk_size
         self._session: _Session | None = None
         self._commands = Lock()
         self._state = RLock()
@@ -48,7 +53,11 @@ class AudioCapture:
             with self._state:
                 if self._session is not None:
                     return
-                backend = self._backend if self._backend is not None else WasapiLoopback(CHUNK_SIZE)
+                backend = (
+                    self._backend
+                    if self._backend is not None
+                    else WasapiLoopback(self._chunk_size)
+                )
                 session = self._session = _Session(backend, on_error)
             try:
                 if self._backend is None and sys.platform != "win32":
@@ -93,9 +102,10 @@ class AudioCapture:
                     raise ValueError("Capture reported non-finite samples")
                 session.rate = rate
                 session.pending.extend(samples)
-                end = len(session.pending) // CHUNK_SIZE * CHUNK_SIZE
-                for offset in range(0, end, CHUNK_SIZE):
-                    callback(session.pending[offset:offset + CHUNK_SIZE], rate)
+                chunk_size = self._chunk_size
+                end = len(session.pending) // chunk_size * chunk_size
+                for offset in range(0, end, chunk_size):
+                    callback(session.pending[offset:offset + chunk_size], rate)
                 del session.pending[:end]
         except Exception as exc:
             if self._backend is None:

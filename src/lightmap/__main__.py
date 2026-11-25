@@ -13,7 +13,12 @@ from .overlay_view import OverlayView
 from .preferences import load_preferences, preferences_path, save_preferences
 
 BUNDLED_MAPS = Path(__file__).resolve().parents[1] / "map"
-PALETTES = {name.title(): BUNDLED_MAPS / f"{name}.png" for name in ("spectrum", "ember", "ocean")}
+PALETTES = {
+    name.title(): BUNDLED_MAPS / f"{name}.png"
+    for name in ("spectrum", "ember", "ocean", "rainbow", "octaves")
+}
+LIVE_WINDOW_SIZE = 2048
+LIVE_HOP_SIZE = 256
 
 
 def _palette_path(value: str) -> Path:
@@ -27,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--map",
         metavar="NAME_OR_PATH",
-        help="override the saved palette with spectrum, ember, ocean, or an image file",
+        help="override the saved palette with spectrum, ember, ocean, rainbow, octaves, or an image file",
     )
     args = parser.parse_args(argv)
     settings_file = preferences_path()
@@ -38,14 +43,24 @@ def main(argv: list[str] | None = None) -> int:
         notice = ""
         try:
             controller = AppController(
-                AppModel(), AudioCapture(), FrequencyAnalyser(), colour_map_path=path
+                AppModel(),
+                AudioCapture(chunk_size=LIVE_HOP_SIZE),
+                FrequencyAnalyser(
+                    window_size=LIVE_WINDOW_SIZE, hop_size=LIVE_HOP_SIZE, window="low_latency"
+                ),
+                colour_map_path=path,
             )
         except (OSError, ValueError):
             if args.map is not None or path == PALETTES["Spectrum"]:
                 raise
             path = PALETTES["Spectrum"]
             controller = AppController(
-                AppModel(), AudioCapture(), FrequencyAnalyser(), colour_map_path=path
+                AppModel(),
+                AudioCapture(chunk_size=LIVE_HOP_SIZE),
+                FrequencyAnalyser(
+                    window_size=LIVE_WINDOW_SIZE, hop_size=LIVE_HOP_SIZE, window="low_latency"
+                ),
+                colour_map_path=path,
             )
             notice = "The saved colour map could not be opened. Spectrum is active."
         controller.set_smoothing_enabled(prefs.smoothing)

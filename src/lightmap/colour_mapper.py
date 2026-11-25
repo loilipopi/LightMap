@@ -10,6 +10,7 @@ ColourMapImage = list[list[tuple[int, int, int]]]
 DEFAULT_MAX_MAGNITUDE = 0.5
 DEFAULT_FLOOR_DB = -60.0
 DEFAULT_MIN_FREQUENCY = 20.0
+_MAX_FREQ_CACHE = 8192
 
 
 class ColourMapper:
@@ -80,6 +81,7 @@ class ColourMapper:
         # Magnitudes below this are under the floor. The tiny allowance keeps
         # a magnitude exactly at the floor from being lost to rounding.
         self._floor_magnitude = self._max_magnitude * 10 ** (self._floor_db / 20) * (1 - 1e-12)
+        self._freq_cache: dict[float, tuple[int, int, float]] = {}
 
     def map_colour(
         self, spectrum: list[tuple[float, float]], *, tuning: AudioTuning | None = None
@@ -102,11 +104,21 @@ class ColourMapper:
             unchanged.
         """
         total_weight = 0.0
-        sums = [0.0, 0.0, 0.0]
+        sum_r = 0.0
+        sum_g = 0.0
+        sum_b = 0.0
         floor_db = self._floor_db if tuning is None else tuning.floor_db
         floor_magnitude = self._floor_magnitude
         if floor_db != self._floor_db:
             floor_magnitude = self._max_magnitude * 10 ** (floor_db / 20) * (1 - 1e-12)
+
+        grid = self._grid
+        last_row = self._last_row
+        inv_max_mag = 1.0 / self._max_magnitude
+        inv_floor_db = 1.0 / floor_db
+        freq_cache = self._freq_cache
+        x_lookup = self._x_position
+
         for frequency, magnitude in spectrum:
             if magnitude < floor_magnitude:
                 continue
@@ -115,15 +127,71 @@ class ColourMapper:
                 weight *= tuning.weight(frequency)
             if weight == 0:
                 continue
-            colour = self._lookup(frequency, magnitude, floor_db)
+
+            pos = freq_cache.get(frequency)
+            if pos is None:
+                pos = x_lookup(frequency)
+                if len(freq_cache) >= _MAX_FREQ_CACHE:
+                    freq_cache.clear()
+                freq_cache[frequency] = pos
+            left, right, dx = pos
+
+            if last_row == 0:
+                row = grid[0]
+                p0 = row[left]
+                p1 = row[right]
+                omx = 1.0 - dx
+                r = omx * p0[0] + dx * p1[0]
+                g = omx * p0[1] + dx * p1[1]
+                b = omx * p0[2] + dx * p1[2]
+            else:
+                decibels = 20.0 * log10(magnitude * inv_max_mag)
+                v = 1.0 - decibels * inv_floor_db
+                if v < 0.0:
+                    v = 0.0
+                elif v > 1.0:
+                    v = 1.0
+                y = (1.0 - v) * last_row
+                top = int(y)
+                bottom = top + 1 if top < last_row else last_row
+                dy = y - top
+                omy = 1.0 - dy
+                omx = 1.0 - dx
+                upper = grid[top]
+                lower = grid[bottom]
+                ul = upper[left]
+                ur = upper[right]
+                ll = lower[left]
+                lr = lower[right]
+                r = omy * (omx * ul[0] + dx * ur[0]) + dy * (omx * ll[0] + dx * lr[0])
+                g = omy * (omx * ul[1] + dx * ur[1]) + dy * (omx * ll[1] + dx * lr[1])
+                b = omy * (omx * ul[2] + dx * ur[2]) + dy * (omx * ll[2] + dx * lr[2])
+
             total_weight += weight
-            for channel in range(3):
-                sums[channel] += weight * colour[channel]
+            sum_r += weight * r
+            sum_g += weight * g
+            sum_b += weight * b
 
         if total_weight == 0:
             return (0, 0, 0) if tuning is None else tuning.quiet_colour
-        red, green, blue = (_to_channel(total / total_weight) for total in sums)
-        return (red, green, blue)
+        inv_weight = 1.0 / total_weight
+        return (
+            _to_channel(sum_r * inv_weight),
+            _to_channel(sum_g * inv_weight),
+            _to_channel(sum_b * inv_weight),
+        )
+
+    def _x_position(self, frequency: float) -> tuple[int, int, float]:
+        if frequency <= self._min_frequency:
+            u = 0.0
+        else:
+            u = log(frequency / self._min_frequency) / self._log_frequency_span
+            if u > 1.0:
+                u = 1.0
+        x = u * self._last_column
+        left = floor(x)
+        right = left + 1 if left < self._last_column else self._last_column
+        return left, right, x - left
 
     def _build_lookup_grid(
         self, colour_map: ColourMapImage
@@ -174,27 +242,25 @@ class ColourMapper:
         self, frequency: float, magnitude: float, floor_db: float | None = None
     ) -> tuple[float, float, float]:
         """Return the unrounded bilinear colour at this pair's position."""
-        if frequency <= self._min_frequency:
-            u = 0.0
-        else:
-            u = min(log(frequency / self._min_frequency) / self._log_frequency_span, 1.0)
+        left, right, dx = self._x_position(frequency)
         if magnitude <= 0:
             v = 0.0
         else:
             decibels = 20 * log10(magnitude / self._max_magnitude)
             v = min(max(1 - decibels / (self._floor_db if floor_db is None else floor_db), 0.0), 1.0)
 
-        x = u * self._last_column
         y = (1 - v) * self._last_row
-        left, top = floor(x), floor(y)
-        right, bottom = min(left + 1, self._last_column), min(top + 1, self._last_row)
-        dx, dy = x - left, y - top
+        top = floor(y)
+        bottom = min(top + 1, self._last_row)
+        dy = y - top
 
         upper, lower = self._grid[top], self._grid[bottom]
-        return tuple(
-            (1 - dy) * ((1 - dx) * upper[left][c] + dx * upper[right][c])
-            + dy * ((1 - dx) * lower[left][c] + dx * lower[right][c])
-            for c in range(3)
+        omx, omy = 1 - dx, 1 - dy
+        ul, ur, ll, lr = upper[left], upper[right], lower[left], lower[right]
+        return (
+            omy * (omx * ul[0] + dx * ur[0]) + dy * (omx * ll[0] + dx * lr[0]),
+            omy * (omx * ul[1] + dx * ur[1]) + dy * (omx * ll[1] + dx * lr[1]),
+            omy * (omx * ul[2] + dx * ur[2]) + dy * (omx * ll[2] + dx * lr[2]),
         )
 
 
