@@ -37,9 +37,52 @@ Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. Double-click **
 3. Turn **Smooth colour changes** on or off. Smoothing is on by default and gently blends changes over successive audio windows.
 4. Choose **Bar** and an edge, or choose **Circle** and enter a radius and position. **Across** and **Down** place the circle within the primary screen, from 0% at the left or top to 100% at the right or bottom. Set the opacity and click **Apply layout**.
 
-The command-line `--map` option is still available when launching with `python -m lightmap` from `src`.
+Use Windows PowerShell if the cmd file does not work.
 
-### Recommended Game Settings
+### Run LightMap Using Terminal
+
+Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. From the repository root in PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\src\requirements.txt
+cd .\src
+..\.venv\Scripts\python.exe -m lightmap
+```
+
+Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
+
+Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom. For example:
+
+```powershell
+..\.venv\Scripts\python.exe -m lightmap --map ember
+```
+
+## Problem Statement
+
+Many video games rely on important audio cues to inform players about actions or opportunities. This can make those games inaccessible or significantly more difficult for players who are deaf or hard of hearing.
+
+For example, tactical shooters with bomb-defusal game modes often use distinct audio cues to indicate when an objective is planted or defused. Footsteps and certain character abilities also produce important sounds that players can use to make decisions.
+
+This becomes even more challenging when music is mixed with these audio cues. Some games include visual cues alongside audio to improve accessibility; however, these features, particularly in competitive games, are often limited and may not communicate as much information as the audio itself.
+
+## Specification
+
+### Solution
+
+LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, each frequency bin is placed on a **2D colour map** (frequency on a logarithmic horizontal axis, loudness in decibels on the vertical axis), and the colour at that point is sampled. Bins below a noise floor are ignored, and the sampled colours are combined, with louder bins counting for more, into **one RGB colour** that can be displayed through a screen overlay or an external light.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/58797190-01c4-4eaa-9415-030f20fd47b4" width="860" alt="LightMap frequency-and-volume colour mapping diagram" />
+</p>
+
+Users could also create custom colour maps for different games and scenarios. Ideally, creating these maps would be straightforward, but simplifying that process is **outside the scope of this project**.
+
+### Example
+
+In video games like *VALORANT*, an objective emits a periodic sound that becomes faster as its timer approaches the end. Players who cannot hear this sound may have difficulty judging how much time remains. The intended use of LightMap is to convert this audio information into a colour-based visual output, giving players another way to receive feedback.
+
+## Recommended Game Settings
 
 For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
 
@@ -68,30 +111,6 @@ Unfortunately, you cannot completely eliminate these category through VALORANT's
 - UI and notification sounds
 
 We also recommend muting other desktop applications, such as Discord, Spotify, and web browsers, since LightMap captures system audio.
-
-## Problem Statement
-
-Many video games rely on important audio cues to inform players about actions or opportunities. This can make those games inaccessible or significantly more difficult for players who are deaf or hard of hearing.
-
-For example, tactical shooters with bomb-defusal game modes often use distinct audio cues to indicate when an objective is planted or defused. Footsteps and certain character abilities also produce important sounds that players can use to make decisions.
-
-This becomes even more challenging when music is mixed with these audio cues. Some games include visual cues alongside audio to improve accessibility; however, these features, particularly in competitive games, are often limited and may not communicate as much information as the audio itself.
-
-## Specification
-
-### Solution
-
-LightMap aims to capture PC audio and process it using an FFT to generate a **volume-versus-frequency spectrum**. In real time, each frequency bin is placed on a **2D colour map** (frequency on a logarithmic horizontal axis, loudness in decibels on the vertical axis), and the colour at that point is sampled. Bins below a noise floor are ignored, and the sampled colours are combined, with louder bins counting for more, into **one RGB colour** that can be displayed through a screen overlay or an external light.
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/58797190-01c4-4eaa-9415-030f20fd47b4" width="860" alt="LightMap frequency-and-volume colour mapping diagram" />
-</p>
-
-Users could also create custom colour maps for different games and scenarios. Ideally, creating these maps would be straightforward, but simplifying that process is **outside the scope of this project**.
-
-### Example
-
-In video games like *VALORANT*, an objective emits a periodic sound that becomes faster as its timer approaches the end. Players who cannot hear this sound may have difficulty judging how much time remains. The intended use of LightMap is to convert this audio information into a colour-based visual output, giving players another way to receive feedback.
 
 ## Other Applications
 
