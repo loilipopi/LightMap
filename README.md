@@ -8,7 +8,7 @@
 
 <p>
   <a href="#overview"><img alt="Overview" src="https://img.shields.io/badge/Overview-4464AD?style=for-the-badge" /></a>
-  <a href="#run-lightmap"><img alt="Start LightMap" src="https://img.shields.io/badge/Run_LightMap-397A66?style=for-the-badge" /></a>
+  <a href="#run-lightmap"><img alt="Run LightMap" src="https://img.shields.io/badge/Run_LightMap-397A66?style=for-the-badge" /></a>
   <a href="#problem-statement"><img alt="Problem Statement" src="https://img.shields.io/badge/Problem_Statement-27A8A8?style=for-the-badge" /></a>
   <a href="#specification"><img alt="Specification" src="https://img.shields.io/badge/Specification-7659BD?style=for-the-badge" /></a>
   <a href="#group-members"><img alt="Group Members" src="https://img.shields.io/badge/Group_Members-A15D87?style=for-the-badge" /></a>
@@ -28,7 +28,7 @@ LightMap is a real-time audio visualization system that converts PC audio into a
 3. **Combine** the sampled colours into one RGB output, updated continuously.
 4. **Display** the output on a screen, through LEDs, or in other applications.
 
-## Start LightMap
+## Run LightMap
 
 ### Run LightMap With cmd File
 
