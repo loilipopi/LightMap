@@ -1,12 +1,15 @@
 """Drive the Tk controls and check the overlay state and rendered pixels."""
 
+import sys
 import threading
 import time
 from tkinter import TclError
 
 import pytest
 
+from lightmap import control_view
 from lightmap.control_view import ControlView
+from lightmap.overlay_layout import OverlayLayout
 
 
 # --------------------------------------------------------------- ControlView
@@ -94,6 +97,47 @@ def test_close_releases_the_window_without_calling_on_close_again(controls):
     assert calls == ["close"]
     with pytest.raises(TclError):
         view._root.winfo_exists()
+
+
+def test_settings_controls_change_palette_smoothing_and_layout(tmp_path, monkeypatch):
+    calls = []
+    palette = tmp_path / "spectrum.png"
+    ember = tmp_path / "ember.png"
+    custom = tmp_path / "custom.png"
+    monkeypatch.setattr(control_view.filedialog, "askopenfilename", lambda **kwargs: str(custom))
+    try:
+        view = ControlView(
+            lambda: None, lambda: None, calls.append, lambda: None,
+            palettes={"Spectrum": palette, "Ember": ember}, current_palette=palette,
+            on_palette_change=calls.append, on_smoothing_toggle=calls.append,
+            on_layout_change=calls.append,
+        )
+    except TclError as exc:
+        if "display" in str(exc):
+            pytest.skip(f"no display available for ControlView: {exc}")
+        raise
+    try:
+        view.show()
+        view._root.update()
+        view._palette.set("Ember")
+        view._palette_picker.event_generate("<<ComboboxSelected>>")
+        view._import_button.invoke()
+        view._smoothing_button.invoke()
+        view._shape.set("Circle")
+        view._shape_picker.event_generate("<<ComboboxSelected>>")
+        view._radius.set("72")
+        view._x_percent.set("100")
+        view._y_percent.set("55")
+        view._opacity.set("75")
+        view._layout_button.invoke()
+        assert calls == [ember, custom, False, OverlayLayout("circle", "top", 72, 100, 55, 75)]
+        assert view._palette.get() == "Custom: custom.png"
+        view._radius.set("zero")
+        view._layout_button.invoke()
+        assert view._settings_error.get()
+        assert len(calls) == 4
+    finally:
+        view.close()
 
 
 # --------------------------------------------------------------- OverlayView
@@ -197,6 +241,35 @@ def test_d04_hidden_overlay_draws_nothing(overlay):
     assert _wait_until(lambda: _screen_pixel() == (255, 0, 0))
     overlay.hide()
     assert _wait_until(lambda: _screen_pixel() != (255, 0, 0))
+
+
+@pytest.mark.parametrize(
+    ("edge", "bounds"),
+    [("top", (600, 24, 0, 0)), ("bottom", (600, 24, 0, 376)),
+     ("left", (24, 400, 0, 0)), ("right", (24, 400, 576, 0))],
+)
+def test_bar_layout_matches_requested_edge_and_thickness(edge, bounds):
+    assert OverlayLayout(edge=edge, size=24).bounds(600, 400) == bounds
+
+
+def test_circle_position_uses_available_screen_space():
+    layout = OverlayLayout("circle", size=25, x_percent=100, y_percent=50)
+    assert layout.bounds(600, 400) == (50, 50, 550, 175)
+    assert OverlayLayout("circle", size=500).bounds(600, 400)[:2] == (400, 400)
+    with pytest.raises(ValueError, match="Position"):
+        OverlayLayout("circle", x_percent=120)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="native overlay regions require Windows")
+def test_switching_circle_to_bar_updates_the_rendered_region(overlay):
+    colour = (233, 90, 179)
+    overlay.set_layout(OverlayLayout("circle", size=35, x_percent=0, y_percent=0))
+    overlay.set_colour(colour)
+    overlay.show()
+    assert _wait_until(lambda: _screen_pixel(35, 35) == colour)
+    assert _screen_pixel(2, 2) != colour
+    overlay.set_layout(OverlayLayout(size=70))
+    assert _wait_until(lambda: _screen_pixel(2, 2) == colour)
 
 
 def test_calls_from_other_threads_are_safe(overlay):

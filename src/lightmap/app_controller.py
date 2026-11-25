@@ -1,14 +1,17 @@
-from math import isfinite
+from math import expm1, isfinite
 from numbers import Integral
 from os import PathLike
 from threading import Lock, RLock
 
-from .app_model import AppState, CaptureStatus
+from .app_model import AppState, CaptureStatus, RGB
 from .audio_capture import AudioCapture
 from .audio_analyser import FrequencyAnalyser
 from .colour_mapper import ColourMapImage, ColourMapper
 from .control_view import ControlView
+from .overlay_layout import OverlayLayout
 from .overlay_view import OverlayView
+
+SMOOTHING_SECONDS = 0.035
 
 
 class AppController:
@@ -43,6 +46,11 @@ class AppController:
         self._colour_map: ColourMapImage | None = None
         self._map_settings: dict[str, float] = {}
         self._mapper_sample_rate: float | None = None
+        self._latest_spectrum: list[tuple[float, float]] | None = None
+        self._latest_colour = model.output_colour
+        self._smoothing_enabled = False
+        self._smoothed: tuple[float, float, float] | None = None
+        self._overlay_layout: OverlayLayout | None = None
         self._controls: ControlView | None = None
         self._overlay: OverlayView | None = None
         self._closed = False
@@ -112,6 +120,8 @@ class AppController:
             self._overlay = overlay
             controls.set_status(self._model.capture_status)
             overlay.set_colour(self._model.output_colour)
+            if self._overlay_layout is not None:
+                overlay.set_layout(self._overlay_layout)
             if self._model.overlay_enabled:
                 overlay.show()
             else:
@@ -128,6 +138,8 @@ class AppController:
 
             with self._state:
                 self._analyser.reset()
+                self._latest_spectrum = None
+                self._smoothed = None
                 session = self._session = object()
                 self._starting = True
                 self._capture_needs_stop = True
@@ -186,10 +198,67 @@ class AppController:
                 return
             mapper = self._mapper_for_rate(sample_rate)
             for spectrum in spectra:
-                colour = mapper.map_colour(spectrum)
-            self._model.output_colour = colour
+                colour = self._latest_colour = mapper.map_colour(spectrum)
+                if self._smoothing_enabled:
+                    colour = self._smooth(colour, sample_rate)
+            self._latest_spectrum = spectra[-1]
+            self._publish_colour(colour)
+
+    def set_colour_map(self, path: str | PathLike[str]) -> None:
+        """Load a palette and apply it to the latest spectrum, if available."""
+        pixels = self._load_colour_map(path)
+        with self._state:
+            if self._closed:
+                return
+            sample_rate = self._model.settings.get("sample_rate")
+            if sample_rate is None:
+                mapper = None
+            else:
+                mapper = ColourMapper(pixels, {**self._map_settings, "sample_rate": sample_rate})
+            spectrum = self._latest_spectrum
+            colour = mapper.map_colour(spectrum) if mapper is not None and spectrum else (0, 0, 0)
+            self._colour_map = pixels
+            self._mapper = mapper
+            self._mapper_sample_rate = sample_rate
+            self._latest_colour = colour
+            self._smoothed = None
+            self._publish_colour(colour)
+
+    def set_smoothing_enabled(self, enabled: bool) -> None:
+        """Toggle the short visual transition without changing FFT or mapping."""
+        with self._state:
+            if self._closed or enabled == self._smoothing_enabled:
+                return
+            self._smoothing_enabled = enabled
+            self._smoothed = self._model.output_colour if enabled else None
+            if not enabled:
+                self._publish_colour(self._latest_colour)
+
+    def set_overlay_layout(self, layout: OverlayLayout) -> None:
+        """Apply geometry and opacity without changing the overlay visibility."""
+        with self._state:
+            if self._closed:
+                return
             if self._overlay is not None:
-                self._overlay.set_colour(self._model.output_colour)
+                self._overlay.set_layout(layout)
+            self._overlay_layout = layout
+
+    def _smooth(self, colour: RGB, sample_rate: int) -> RGB:
+        if self._smoothed is None:
+            self._smoothed = colour
+            return colour
+        # Each spectrum represents one non-overlapping analysis window.
+        weight = -expm1(-1024 / (sample_rate * SMOOTHING_SECONDS))
+        red, green, blue = (
+            old + (new - old) * weight for old, new in zip(self._smoothed, colour)
+        )
+        self._smoothed = (red, green, blue)
+        return round(red), round(green), round(blue)
+
+    def _publish_colour(self, colour: RGB) -> None:
+        self._model.output_colour = colour
+        if self._overlay is not None:
+            self._overlay.set_colour(colour)
 
     def on_error(self, message: str) -> None:
         """Discard the failed session reported by AudioCapture and show its error."""

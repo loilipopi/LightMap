@@ -29,22 +29,14 @@ LightMap is a real-time audio visualization system that converts PC audio into a
 
 ## Run LightMap
 
-Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. From the repository root in PowerShell:
+Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. Double-click **LightMap.cmd** in File Explorer. The first launch creates a local environment and downloads the app's dependencies. Later launches use that environment and open the control window directly.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r .\src\requirements.txt
-cd .\src
-..\.venv\Scripts\python.exe -m lightmap
-```
+1. Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the app also closes the overlay.
+2. Choose **Spectrum**, **Ember**, or **Ocean** under **Colour map**. **Import image…** opens a local image as a custom map. Frequency increases from left to right, and loudness increases from bottom to top.
+3. Turn **Smooth colour changes** on or off. Smoothing is on by default and gently blends changes over successive audio windows.
+4. Choose **Bar** and an edge, or choose **Circle** and enter a radius and position. **Across** and **Down** place the circle within the primary screen, from 0% at the left or top to 100% at the right or bottom. Set the opacity and click **Apply layout**.
 
-Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
-
-Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom. For example:
-
-```powershell
-..\.venv\Scripts\python.exe -m lightmap --map ember
-```
+The command-line `--map` option is still available when launching with `python -m lightmap` from `src`.
 
 ### Recommended Game Settings
 
@@ -117,6 +109,12 @@ Other potential applications include:
 [Lucas Lu](https://github.com/l-lu2007) - Developer\
 [Kevin Wu](https://github.com/isnxnet) - Developer\
 [Taj Sangra](https://github.com/tajsangra) - Developer
+
+## License
+
+LightMap is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+Third-party dependencies retain their own licenses. See [DEPENDENCY_LICENSES.md](DEPENDENCY_LICENSES.md) and [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
 
 ---
 

@@ -1,5 +1,4 @@
-"""OverlayView: a borderless, always-on-top colour bar shown along the top
-edge of the screen.
+"""A borderless, always-on-top colour overlay on the primary display.
 
 Threading: the controller calls this view from the audio-callback thread and
 from the GUI thread, but tkinter widgets may only be touched by the thread
@@ -16,9 +15,10 @@ import threading
 import tkinter as tk
 from numbers import Integral
 
+from .overlay_layout import OverlayLayout
+
 RGB = tuple[int, int, int]
 
-BAR_HEIGHT = 48        # pixels; the bar spans the full screen width
 POLL_MS = 15           # how often the UI thread applies the desired state
 RAISE_MS = 500         # while visible, re-assert "always on top" this often
 START_TIMEOUT_S = 5.0
@@ -49,6 +49,7 @@ class OverlayView:
         """
         self._lock = threading.Lock()
         self._colour: RGB = (0, 0, 0)
+        self._layout = OverlayLayout()
         self._visible = False
         self._closed = False
         self._ready = threading.Event()
@@ -112,6 +113,14 @@ class OverlayView:
             if not self._closed:
                 self._visible = True
 
+    def set_layout(self, layout: OverlayLayout) -> None:
+        """Set shape, placement, size and opacity without showing the window."""
+        if layout.shape == "circle" and sys.platform != "win32":
+            raise ValueError("The circular overlay requires Windows.")
+        with self._lock:
+            if not self._closed:
+                self._layout = layout
+
     def hide(self) -> None:
         """
         Preconditions:
@@ -152,17 +161,16 @@ class OverlayView:
             root.withdraw()
             root.overrideredirect(True)          # no title bar or border
             root.attributes("-topmost", True)
-            width = root.winfo_screenwidth()
-            root.geometry(f"{width}x{BAR_HEIGHT}+0+0")
             root.configure(bg="#000000")
-            self._make_click_through(root)
 
             state = {"colour": None, "visible": False, "raised_ms": 0}
+            applied_layout = None
 
             def apply() -> None:
+                nonlocal applied_layout
                 with self._lock:
-                    colour, visible, closed = (
-                        self._colour, self._visible, self._closed
+                    colour, visible, closed, layout = (
+                        self._colour, self._visible, self._closed, self._layout
                     )
                 if closed:
                     root.destroy()
@@ -170,6 +178,9 @@ class OverlayView:
                 if colour != state["colour"]:
                     root.configure(bg="#%02x%02x%02x" % colour)
                     state["colour"] = colour
+                if layout != applied_layout:
+                    self._apply_layout(root, layout)
+                    applied_layout = layout
                 if visible != state["visible"]:
                     if visible:
                         root.deiconify()
@@ -205,33 +216,45 @@ class OverlayView:
             self._ready.set()
 
     @staticmethod
-    def _make_click_through(root: tk.Tk) -> None:
-        """On Windows, let mouse clicks pass through to the windows below."""
+    def _apply_layout(root: tk.Tk, layout: OverlayLayout) -> None:
+        width, height, x, y = layout.bounds(root.winfo_screenwidth(), root.winfo_screenheight())
+        root.geometry(f"{width}x{height}+{x}+{y}")
         if sys.platform != "win32":
+            root.attributes("-alpha", layout.opacity / 100)
             return
-        try:
-            import ctypes
-            from ctypes import wintypes
+        root.update_idletasks()
+        OverlayView._configure_windows(root.winfo_id(), width, height, layout)
 
-            root.update_idletasks()
-            user32 = ctypes.windll.user32
-            user32.GetParent.argtypes = (wintypes.HWND,)
-            user32.GetParent.restype = wintypes.HWND
-            user32.GetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int)
-            user32.SetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int, wintypes.LONG)
-            user32.SetLayeredWindowAttributes.argtypes = (
-                wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD
-            )
-            hwnd = user32.GetParent(root.winfo_id()) or root.winfo_id()
-            GWL_EXSTYLE = -20
-            WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW = 0x80000, 0x20, 0x80
-            LWA_ALPHA = 0x02
-            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            user32.SetWindowLongW(
-                hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW
-            )
-            # Layered windows need an opacity before Windows will draw them.
-            if not user32.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA):
-                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-        except (AttributeError, OSError):
-            pass
+    @staticmethod
+    def _configure_windows(window: int, width: int, height: int, layout: OverlayLayout) -> None:
+        """Set click-through, opacity and the native drawing region."""
+        import ctypes
+        from ctypes import wintypes
+
+        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+        user32.GetParent.argtypes = (wintypes.HWND,)
+        user32.GetParent.restype = wintypes.HWND
+        user32.GetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int)
+        user32.SetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int, wintypes.LONG)
+        user32.SetLayeredWindowAttributes.argtypes = (
+            wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD
+        )
+        user32.SetWindowRgn.argtypes = (wintypes.HWND, wintypes.HRGN, wintypes.BOOL)
+        gdi32.CreateEllipticRgn.argtypes = (ctypes.c_int,) * 4
+        gdi32.CreateEllipticRgn.restype = wintypes.HRGN
+        gdi32.DeleteObject.argtypes = (wintypes.HGDIOBJ,)
+
+        hwnd = user32.GetParent(window) or window
+        GWL_EXSTYLE = -20
+        WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW = 0x80000, 0x20, 0x80
+        LWA_ALPHA = 0x02
+        style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        user32.SetWindowLongW(
+            hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW
+        )
+        if not user32.SetLayeredWindowAttributes(hwnd, 0, round(layout.opacity * 255 / 100), LWA_ALPHA):
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+        region = gdi32.CreateEllipticRgn(0, 0, width, height) if layout.shape == "circle" else None
+        if not user32.SetWindowRgn(hwnd, region, True) and region:
+            # Windows owns the region only after a successful call.
+            gdi32.DeleteObject(region)

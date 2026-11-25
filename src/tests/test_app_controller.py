@@ -20,6 +20,43 @@ SAMPLES = [0.0] * 8
 RATE = 48000
 
 
+def test_smoothing_blends_successive_updates_and_can_be_disabled(parts, monkeypatch):
+    colours = iter([(0, 0, 0), (255, 60, 120), (255, 60, 120), (255, 60, 120)])
+    monkeypatch.setattr(parts.mapper, "map_colour", lambda spectrum: next(colours))
+    parts.analyser.script = [[SPECTRUM_1]] * 4
+    parts.controller.set_smoothing_enabled(True)
+    parts.controller.start()
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == (0, 0, 0)
+    parts.capture.on_samples(SAMPLES, RATE)
+    first_step = parts.overlay.colour
+    parts.capture.on_samples(SAMPLES, RATE)
+    second_step = parts.overlay.colour
+    assert all(0 < first < second < target
+               for first, second, target in zip(first_step, second_step, (255, 60, 120)))
+    parts.controller.set_smoothing_enabled(False)
+    assert parts.overlay.colour == (255, 60, 120)
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.model.output_colour == parts.overlay.colour == (255, 60, 120)
+
+
+def test_changing_palette_remaps_latest_spectrum_and_rejects_bad_image(parts, tmp_path):
+    parts.controller.start()
+    parts.analyser.script = [[SPECTRUM_1], [SPECTRUM_2]]
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == (1, 0, 0)
+    path = tmp_path / "custom.png"
+    with Image.new("RGB", (1, 1), (10, 20, 30)) as image:
+        image.save(path)
+    parts.controller.set_colour_map(path)
+    assert parts.overlay.colour == (10, 20, 30)
+    path.write_text("invalid image")
+    with pytest.raises(ValueError):
+        parts.controller.set_colour_map(path)
+    parts.capture.on_samples(SAMPLES, RATE)
+    assert parts.overlay.colour == (10, 20, 30)
+
+
 # ------------------------------------------------------------- set_views
 
 @pytest.mark.parametrize("status", ["stopped", "active", "error"])
