@@ -474,12 +474,6 @@ TEMPLATE_FILES = (
 )
 
 
-@pytest.mark.skipif(not TEMPLATE_DIR.is_dir(), reason=f"no templates folder at {TEMPLATE_DIR}; set TEMPLATE_DIR")
-@pytest.mark.xfail(
-    len(TEMPLATE_FILES) < MIN_TEMPLATES,
-    reason=f"only {len(TEMPLATE_FILES)} of {MIN_TEMPLATES} templates added so far",
-    strict=True,
-)
 def test_cm03_enough_templates_are_provided():
     assert len(TEMPLATE_FILES) >= MIN_TEMPLATES
 

@@ -51,6 +51,32 @@ Users could also create custom colour maps for different games and scenarios. Id
 
 In video games like *VALORANT*, an objective emits a periodic sound that becomes faster as its timer approaches the end. Players who cannot hear this sound may have difficulty judging how much time remains. The intended use of LightMap is to convert this audio information into a colour-based visual output, giving players another way to receive feedback.
 
+## Run LightMap
+
+Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. From the repository root in PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\src\requirements.txt
+cd .\src
+..\.venv\Scripts\python.exe -m lightmap
+```
+
+Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
+
+Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom.
+
+For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
+
+### Run the tests
+
+From `src`, install the test dependencies and run the suite:
+
+```powershell
+..\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+..\.venv\Scripts\python.exe -m pytest
+```
+
 ## Other Applications
 
 LightMap can visualize game audio to provide additional feedback for players who are deaf or hard of hearing. **The initial RGB output represents the overall audio spectrum; recognizing specific sounds would require further processing.**

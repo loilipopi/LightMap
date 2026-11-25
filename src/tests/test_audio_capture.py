@@ -8,30 +8,17 @@ Specification:
   * Chunk duration t = N / fs with window size N = 1024 samples
     (one chunk = one analysis window, no overlap).
 
-IMPORTANT: the AudioCapture stub takes no arguments, so it always talks to the
-real audio device, and a test machine has none. To make it testable, these
-tests assume AudioCapture accepts an optional `backend`:
-
-    AudioCapture(backend=None)   # None -> use the real default output device
-
-where a backend provides two methods (see FakeBackend below):
-
-    backend.open(on_chunk, on_failure)   # start delivering audio
-        on_chunk(samples: list[float], sample_rate: int)
-        on_failure(message: str)
-    backend.close()                      # release the device
-
-Until AudioCapture accepts `backend`, every test here is skipped (the skip
-reason says why). If you prefer a different seam, only the `env` fixture and
-FakeBackend need to change.
+The injected source simulates the audio device independently from WASAPI.
 """
 
 import math
+from struct import pack
 from types import SimpleNamespace
 
 import pytest
 
 from lightmap.audio_capture import AudioCapture
+from lightmap._wasapi import _downmix_pcm16
 
 CHUNK_SIZE = 1024   # N = 1024 samples -> chunk duration t = N / fs
 
@@ -88,15 +75,7 @@ class Sink:
 @pytest.fixture
 def env():
     backend = FakeBackend()
-    try:
-        capture = AudioCapture(backend=backend)
-    except TypeError:
-        pytest.skip(
-            "AudioCapture does not accept a `backend` yet, so it cannot be "
-            "tested without a real audio device. See the note at the top of "
-            "this file."
-        )
-    return SimpleNamespace(capture=capture, backend=backend)
+    return SimpleNamespace(capture=AudioCapture(backend=backend), backend=backend)
 
 
 def start(env, sink=None):
@@ -213,3 +192,45 @@ def test_ca06_capture_can_be_restarted_after_a_failure(env):
     assert env.backend.open_streams == 1
     env.backend.deliver(RAMP[:CHUNK_SIZE])
     assert sink.flat
+
+
+def test_restart_drops_partial_windows_and_old_callbacks(env):
+    first = start(env)
+    env.backend.deliver(RAMP[:CHUNK_SIZE - 1])
+    old_chunk, old_failure = env.backend._on_chunk, env.backend._on_failure
+    env.capture.stop()
+    second = start(env)
+    old_chunk(RAMP[:CHUNK_SIZE], 48000)
+    old_failure("old device error")
+    env.backend.deliver(RAMP[CHUNK_SIZE:2 * CHUNK_SIZE])
+    assert not first.batches and not first.errors and not second.errors
+    assert second.batches == [(RAMP[CHUNK_SIZE:2 * CHUNK_SIZE], 48000)]
+
+
+def test_failed_open_releases_partially_open_source(env, monkeypatch):
+    open_source = env.backend.open
+
+    def fail_after_open(on_chunk, on_failure):
+        open_source(on_chunk, on_failure)
+        on_failure("startup failed")
+
+    monkeypatch.setattr(env.backend, "open", fail_after_open)
+    sink = start(env)
+    assert env.backend.open_streams == 0
+    assert sink.errors == ["startup failed"]
+
+
+def test_inconsistent_sample_rate_stops_capture(env):
+    sink = start(env)
+    env.backend.deliver(RAMP[:CHUNK_SIZE])
+    env.backend.sample_rate = 44100
+    env.backend.deliver(RAMP[:CHUNK_SIZE])
+    assert len(sink.batches) == 1
+    assert sink.errors == ["Playback sample rate changed during capture"]
+    assert env.backend.open_streams == 0
+
+
+def test_downmix_means_corresponding_channels_and_normalizes():
+    stereo = pack("<6h", -32768, 0, 0, 16384, 1000, -1000)
+    assert _downmix_pcm16(stereo, 2) == [-0.5, 0.25, 0.0]
+    assert _downmix_pcm16(pack("<2h", 16384, -32768), 1) == [0.5, -1.0]

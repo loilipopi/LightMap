@@ -1,56 +1,99 @@
-"""ControlView and OverlayView tests (owners: Robert and Lucas).
+"""Drive the Tk controls and check the overlay state and rendered pixels."""
 
-Requirements covered once written: CA-06, D-01, D-03, D-04, D-05.
-
-Everything here is a skipped placeholder, on purpose. The view stubs have no
-way to read their state back (no getters for the shown status, visibility or
-colour), and the GUI toolkit is not chosen yet, so there is nothing a test can
-check. Each placeholder records the pass criterion from the checklist, so
-nothing gets forgotten. To enable one: expose the state (or drive the widgets
-through the toolkit's test hooks), delete the skip marker and write the body.
-
-The behaviour that routes through the views (status shown, overlay shown or
-hidden, closed on exit) is already covered from the controller's side in
-test_app_controller.py. Pixel-level checks stay manual (within +-2 per RGB
-channel in overlay screenshots; see the checklist).
-"""
-
+import threading
 import time
+from tkinter import TclError
 
 import pytest
 
-NEEDS_VIEW_HOOKS = (
-    "The view stubs expose no state and the GUI toolkit isn't chosen yet; "
-    "see the note at the top of this file."
-)
+from lightmap.control_view import ControlView
 
 
 # --------------------------------------------------------------- ControlView
 
-@pytest.mark.skip(reason=NEEDS_VIEW_HOOKS)
-def test_start_and_stop_controls_call_their_callbacks():
-    """Activating Start calls on_start exactly once; Stop calls on_stop once."""
+@pytest.fixture
+def controls():
+    calls = []
+    try:
+        view = ControlView(
+            lambda: calls.append("start"),
+            lambda: calls.append("stop"),
+            calls.append,
+            lambda: calls.append("close"),
+        )
+    except TclError as exc:
+        if "display" in str(exc):
+            pytest.skip(f"no display available for ControlView: {exc}")
+        raise
+    yield view, calls
+    view.close()
 
 
-@pytest.mark.skip(reason=NEEDS_VIEW_HOOKS)
-def test_overlay_toggle_passes_true_for_enabled_and_false_for_disabled():
-    """on_overlay_toggle(True) when enabled, on_overlay_toggle(False) when disabled."""
+def _control_updates(view):
+    def drained():
+        view._root.update()
+        return view._updates.empty()
+
+    assert _wait_until(drained)
 
 
-@pytest.mark.skip(reason=NEEDS_VIEW_HOOKS)
-def test_ca06_set_status_shows_each_of_the_three_states():
-    """After set_status('stopped' / 'active' / 'error') the displayed text
-    matches the status. A new ControlView shows 'stopped'."""
+def test_start_and_stop_controls_call_their_callbacks(controls):
+    view, calls = controls
+    assert view._root.state() == "withdrawn"
+    view.show()
+    view._stop_button.invoke()
+    view._start_button.invoke()
+    view.set_status("active")
+    _control_updates(view)
+    view._start_button.invoke()
+    view._stop_button.invoke()
+    assert calls == ["start", "stop"]
 
 
-@pytest.mark.skip(reason=NEEDS_VIEW_HOOKS)
-def test_show_error_displays_the_message():
-    """show_error(message) makes the message visible to the user."""
+def test_overlay_toggle_passes_true_for_enabled_and_false_for_disabled(controls):
+    view, calls = controls
+    view._overlay_button.invoke()
+    view._overlay_button.invoke()
+    assert calls == [True, False]
 
 
-@pytest.mark.skip(reason=NEEDS_VIEW_HOOKS)
-def test_close_releases_the_window_without_calling_on_close_again():
-    """close() closes the window and does not invoke on_close."""
+def test_ca06_set_status_shows_each_of_the_three_states(controls):
+    view, _ = controls
+    assert view._status.get() == "Stopped"
+    for status in ("active", "error", "stopped"):
+        view.set_status(status)
+        _control_updates(view)
+        assert view._status.get() == status.capitalize()
+
+
+def test_show_error_displays_the_message_from_the_audio_thread(controls):
+    view, _ = controls
+    view.show()
+
+    def report_error():
+        view.set_status("error")
+        view.show_error("The output device was removed")
+
+    worker = threading.Thread(target=report_error)
+    worker.start()
+    worker.join()
+    _control_updates(view)
+    assert view._status.get() == "Error"
+    assert view._error.get() == "The output device was removed"
+    assert view._error_label.winfo_ismapped()
+    view.set_status("active")
+    _control_updates(view)
+    assert not view._error_label.winfo_ismapped()
+
+
+def test_close_releases_the_window_without_calling_on_close_again(controls):
+    view, calls = controls
+    view._root.tk.call(view._root.protocol("WM_DELETE_WINDOW"))
+    view.close()
+    view.close()
+    assert calls == ["close"]
+    with pytest.raises(TclError):
+        view._root.winfo_exists()
 
 
 # --------------------------------------------------------------- OverlayView
@@ -157,8 +200,6 @@ def test_d04_hidden_overlay_draws_nothing(overlay):
 
 
 def test_calls_from_other_threads_are_safe(overlay):
-    import threading
-
     def hammer():
         for i in range(200):
             overlay.set_colour((i % 256, 0, 0))
@@ -174,8 +215,6 @@ def test_calls_from_other_threads_are_safe(overlay):
 
 
 def test_d05_close_releases_the_overlay(overlay):
-    import threading
-
     overlay.show()
     overlay.close()
     assert overlay.closed is True

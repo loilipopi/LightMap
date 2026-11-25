@@ -211,15 +211,27 @@ class OverlayView:
             return
         try:
             import ctypes
+            from ctypes import wintypes
 
             root.update_idletasks()
-            hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+            user32 = ctypes.windll.user32
+            user32.GetParent.argtypes = (wintypes.HWND,)
+            user32.GetParent.restype = wintypes.HWND
+            user32.GetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int)
+            user32.SetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int, wintypes.LONG)
+            user32.SetLayeredWindowAttributes.argtypes = (
+                wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD
+            )
+            hwnd = user32.GetParent(root.winfo_id()) or root.winfo_id()
             GWL_EXSTYLE = -20
             WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW = 0x80000, 0x20, 0x80
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            ctypes.windll.user32.SetWindowLongW(
-                hwnd, GWL_EXSTYLE,
-                style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
+            LWA_ALPHA = 0x02
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(
+                hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW
             )
-        except Exception:
-            pass  # purely a nicety; the overlay still works without it
+            # Layered windows need an opacity before Windows will draw them.
+            if not user32.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA):
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+        except (AttributeError, OSError):
+            pass
