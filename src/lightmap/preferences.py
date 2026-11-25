@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import asdict, dataclass, field
+from math import cos, log, pi
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -11,6 +12,16 @@ MIN_FLOOR_DB = -100
 MAX_FLOOR_DB = -20
 MAX_EMPHASIS = 300
 MAX_FADE_MS = 5000
+
+# Perceptual emphasis curve: amplitude gain = (percent / 100) ** 2.5
+# (~15 dB per doubling/halving, ~+24 dB at 300%, 0 dB at 100%, muted at 0%).
+EMPHASIS_EXPONENT = 2.5
+_CROSSOVER_HALF_FACTOR = 2.0 ** (1.0 / 3.0)
+_LOW_MID_LO = 250.0 / _CROSSOVER_HALF_FACTOR
+_LOW_MID_HI = 250.0 * _CROSSOVER_HALF_FACTOR
+_MID_HIGH_LO = 4000.0 / _CROSSOVER_HALF_FACTOR
+_MID_HIGH_HI = 4000.0 * _CROSSOVER_HALF_FACTOR
+_INV_CROSSOVER_LOG_SPAN = 1.0 / log(_CROSSOVER_HALF_FACTOR * _CROSSOVER_HALF_FACTOR)
 
 
 @dataclass(frozen=True)
@@ -35,13 +46,31 @@ class AudioTuning:
         ):
             raise ValueError("The quiet colour must contain three RGB channels from 0 to 255.")
 
+    def gain(self, frequency: float) -> float:
+        """Return the perceptual amplitude multiplier for a frequency in Hz."""
+        low, mid, high = self.low, self.mid, self.high
+        if low == mid == high:
+            if low == 100:
+                return 1.0
+            return 0.0 if low == 0 else (low / 100.0) ** EMPHASIS_EXPONENT
+        if frequency <= _LOW_MID_LO:
+            percent = float(low)
+        elif frequency < _LOW_MID_HI:
+            t = log(frequency / _LOW_MID_LO) * _INV_CROSSOVER_LOG_SPAN
+            percent = low + (mid - low) * (0.5 - 0.5 * cos(pi * t))
+        elif frequency <= _MID_HIGH_LO:
+            percent = float(mid)
+        elif frequency < _MID_HIGH_HI:
+            t = log(frequency / _MID_HIGH_LO) * _INV_CROSSOVER_LOG_SPAN
+            percent = mid + (high - mid) * (0.5 - 0.5 * cos(pi * t))
+        else:
+            percent = float(high)
+        return 0.0 if percent <= 0.0 else (percent / 100.0) ** EMPHASIS_EXPONENT
+
     def weight(self, frequency: float) -> float:
         """Return the power multiplier for a frequency in Hz."""
-        if frequency < 250:
-            return self.low / 100
-        if frequency < 4000:
-            return self.mid / 100
-        return self.high / 100
+        amplitude = self.gain(frequency)
+        return amplitude * amplitude
 
 
 @dataclass(frozen=True)

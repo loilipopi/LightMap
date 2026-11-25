@@ -218,7 +218,14 @@ class AppController:
             if self._tuning is not None:
                 self._last_frame_time = monotonic()
                 if self._controls is not None:
-                    peak = max((magnitude for _, magnitude in spectra[-1]), default=0.0)
+                    tuning = self._tuning
+                    if tuning.low == 100 and tuning.mid == 100 and tuning.high == 100:
+                        peak = max((magnitude for _, magnitude in spectra[-1]), default=0.0)
+                    else:
+                        peak = max(
+                            (magnitude * tuning.gain(freq) for freq, magnitude in spectra[-1]),
+                            default=0.0,
+                        )
                     reference = self._map_settings.get("max_magnitude", DEFAULT_MAX_MAGNITUDE)
                     level = 20 * (log10(peak) - log10(reference)) if peak > 0 else None
                     self._controls.set_input_level(level)

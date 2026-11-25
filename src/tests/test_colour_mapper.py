@@ -71,13 +71,39 @@ def test_frequency_emphasis_weights_power_and_can_mute_entire_bands():
     })
     spectrum = [(100.0, 0.05), (NYQUIST, 0.05)]
     quiet = (8, 9, 10)
-    assert mapper.map_colour(spectrum, tuning=AudioTuning(high=200)) == (85, 0, 170)
+    # 200% applies +15.1 dB amplitude gain (32x power weight), so ratio is 1:32 -> (8, 0, 247).
+    assert mapper.map_colour(spectrum, tuning=AudioTuning(high=200)) == (8, 0, 247)
     assert mapper.map_colour(spectrum, tuning=AudioTuning(high=0)) == (255, 0, 0)
     assert mapper.map_colour(
         spectrum, tuning=AudioTuning(quiet_colour=quiet, low=0, high=0)
     ) == quiet
     tuning = AudioTuning(low=25, mid=50, high=200)
-    assert [tuning.weight(frequency) for frequency in (249, 250, 3999, 4000)] == [.25, .5, .5, 2]
+    assert tuning.weight(100) == pytest.approx(0.25 ** 5)
+    assert tuning.weight(1000) == pytest.approx(0.5 ** 5)
+    assert tuning.weight(10000) == pytest.approx(2.0 ** 5)
+    # Smooth crossovers transition monotonically across 250 Hz and 4000 Hz.
+    assert tuning.gain(100) < tuning.gain(249) < tuning.gain(250) < tuning.gain(1000)
+    assert tuning.gain(1000) < tuning.gain(3999) < tuning.gain(4000) < tuning.gain(10000)
+
+
+def test_frequency_emphasis_affects_noise_floor_and_vertical_loudness_axis():
+    quiet = (12, 24, 36)
+    mapper = ColourMapper([[(255, 255, 255)], [(0, 0, 0)]], {"sample_rate": FS})
+    # Raw -68 dB is below the -60 dB floor at 100%, but +23.9 dB at 300% lifts it above the floor.
+    quiet_high = [(10000.0, 0.0002)]
+    assert mapper.map_colour(quiet_high, tuning=AudioTuning(-60, quiet, high=100)) == quiet
+    lifted = mapper.map_colour(quiet_high, tuning=AudioTuning(-60, quiet, high=300))
+    assert lifted != quiet and lifted[0] > 0
+    # Raw -48 dB is above -60 dB at 100%, but -30.1 dB at 25% drops it below the floor.
+    quiet_low = [(100.0, 0.002)]
+    assert mapper.map_colour(quiet_low, tuning=AudioTuning(-60, quiet, low=100)) != quiet
+    assert mapper.map_colour(quiet_low, tuning=AudioTuning(-60, quiet, low=25)) == quiet
+    # On a 2D map, boosting a band increases its vertical (dB) brightness and cutting lowers it.
+    mid_bin = [(1000.0, 0.015)]
+    cut = mapper.map_colour(mid_bin, tuning=AudioTuning(-60, quiet, mid=50))
+    neutral = mapper.map_colour(mid_bin, tuning=AudioTuning(-60, quiet, mid=100))
+    boosted = mapper.map_colour(mid_bin, tuning=AudioTuning(-60, quiet, mid=200))
+    assert cut[0] < neutral[0] < boosted[0]
 
 
 # ---------------------------------------------------------------- helpers

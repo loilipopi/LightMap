@@ -82,6 +82,8 @@ class ColourMapper:
         # a magnitude exactly at the floor from being lost to rounding.
         self._floor_magnitude = self._max_magnitude * 10 ** (self._floor_db / 20) * (1 - 1e-12)
         self._freq_cache: dict[float, tuple[int, int, float]] = {}
+        self._gain_key: tuple[int, int, int] | None = None
+        self._gain_cache: dict[float, float] = {}
 
     def map_colour(
         self, spectrum: list[tuple[float, float]], *, tuning: AudioTuning | None = None
@@ -98,7 +100,8 @@ class ColourMapper:
             colour map gives for each frequency-magnitude pair in
             spectrum at or above the floor (accurate within +/-1 per
             RGB channel). Pairs below the floor are excluded.
-            With tuning, use its floor and frequency-band power weights.
+            With tuning, use its floor and perceptual frequency-band gains
+            for floor gating, vertical dB lookup, and power weighting.
             With no contributing bins, return the quiet colour (black by default).
             spectrum, the lookup grid, and the mapper's settings are
             unchanged.
@@ -112,6 +115,19 @@ class ColourMapper:
         if floor_db != self._floor_db:
             floor_magnitude = self._max_magnitude * 10 ** (floor_db / 20) * (1 - 1e-12)
 
+        apply_gain = (
+            tuning is not None
+            and not (tuning.low == 100 and tuning.mid == 100 and tuning.high == 100)
+        )
+        gain_cache: dict[float, float] | None = None
+        if apply_gain:
+            assert tuning is not None
+            key = (tuning.low, tuning.mid, tuning.high)
+            if self._gain_key != key:
+                self._gain_key = key
+                self._gain_cache.clear()
+            gain_cache = self._gain_cache
+
         grid = self._grid
         last_row = self._last_row
         inv_max_mag = 1.0 / self._max_magnitude
@@ -120,13 +136,18 @@ class ColourMapper:
         x_lookup = self._x_position
 
         for frequency, magnitude in spectrum:
+            if apply_gain:
+                assert tuning is not None and gain_cache is not None
+                gain = gain_cache.get(frequency)
+                if gain is None:
+                    gain = tuning.gain(frequency)
+                    if len(gain_cache) >= _MAX_FREQ_CACHE:
+                        gain_cache.clear()
+                    gain_cache[frequency] = gain
+                magnitude *= gain
             if magnitude < floor_magnitude:
                 continue
             weight = magnitude * magnitude
-            if tuning is not None:
-                weight *= tuning.weight(frequency)
-            if weight == 0:
-                continue
 
             pos = freq_cache.get(frequency)
             if pos is None:
