@@ -27,6 +27,55 @@ LightMap is a real-time audio visualization system that converts PC audio into a
 3. **Combine** the sampled colours into one RGB output, updated continuously.
 4. **Display** the output on a screen, through LEDs, or in other applications.
 
+## Run LightMap
+
+Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. From the repository root in PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\src\requirements.txt
+cd .\src
+..\.venv\Scripts\python.exe -m lightmap
+```
+
+Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
+
+Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom. For example:
+
+```powershell
+..\.venv\Scripts\python.exe -m lightmap --map ember
+```
+
+### Recommended Game Settings
+
+For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
+
+For the best experience with LightMap, we recommend adjusting the in-game audio settings to minimize
+unnecessary sounds such as background music, agent voice lines, and voice chat, while preserving important
+gameplay audio cues.
+
+Using *Valorant* as an example. Navigate to **Settings → Audio** and apply the following settings:
+
+| Setting | Recommended Value |
+|---|---|
+| Overall Volume | 100% |
+| Sound Effects Volume | 100% |
+| Voice-over Volume | 0% |
+| All Music Overall Volume | Disabled |
+| Party Voice Chat | Off |
+| Team Voice Chat | Off |
+
+Even with the recommended configuration, VALORANT does not provide individual volume controls for every sound effect.
+
+Unfortunately, you cannot completely eliminate these category through VALORANT's settings alone.
+- Your own footsteps
+- Your own gunshots
+- Environmental ambience
+- Weapon skin effects
+- UI and notification sounds
+
+We also recommend muting other desktop applications, such as Discord, Spotify, and web browsers, since LightMap captures system audio.
+
 ## Problem Statement
 
 Many video games rely on important audio cues to inform players about actions or opportunities. This can make those games inaccessible or significantly more difficult for players who are deaf or hard of hearing.
@@ -50,27 +99,6 @@ Users could also create custom colour maps for different games and scenarios. Id
 ### Example
 
 In video games like *VALORANT*, an objective emits a periodic sound that becomes faster as its timer approaches the end. Players who cannot hear this sound may have difficulty judging how much time remains. The intended use of LightMap is to convert this audio information into a colour-based visual output, giving players another way to receive feedback.
-
-## Run LightMap
-
-Use Windows 10 or 11 and 64-bit Python 3.12–3.14 with Tkinter. From the repository root in PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r .\src\requirements.txt
-cd .\src
-..\.venv\Scripts\python.exe -m lightmap
-```
-
-Click **Start**, enable **Show overlay**, and play audio through the default Windows output. **Stop** releases capture. Closing the control window also closes the overlay.
-
-Use `--map ember` or `--map ocean` to change the default `spectrum` palette. To use your own image, pass its path with `--map "C:\path\to\my-map.png"`. The image runs from low to high frequency left to right and from loud to quiet top to bottom. For example:
-
-```powershell
-..\.venv\Scripts\python.exe -m lightmap --map ember
-```
-
-For games, use windowed or borderless windowed mode so the Windows desktop overlay can appear above the game.
 
 ## Other Applications
 
